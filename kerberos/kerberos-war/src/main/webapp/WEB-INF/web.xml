@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (C) 2000 - 2018 Silverpeas
+  ~
+  ~ This program is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU Affero General Public License as
+  ~ published by the Free Software Foundation, either version 3 of the
+  ~ License, or (at your option) any later version.
+  ~
+  ~ As a special exception to the terms and conditions of version 3.0 of
+  ~ the GPL, you may redistribute this Program in connection with Free/Libre
+  ~ Open Source Software ("FLOSS") applications as described in Silverpeas's
+  ~ FLOSS exception.  You should have received a copy of the text describing
+  ~ the FLOSS exception, and it is also available here:
+  ~ "https://www.silverpeas.org/legal/floss_exception.html"
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU Affero General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU Affero General Public License
+  ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<web-app id="WebApp_ID" version="2.4"
+         xmlns="http://java.sun.com/xml/ns/j2ee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee
+    http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd">
+
+  <display-name>Silverpeas - Kerberos/Spnego SSO Authentication</display-name>
+
+  <filter>
+    <filter-name>KerberosSpnegoFilter</filter-name>
+    <filter-class>org.silverpeas.sso.kerberos.spnego.KerberosSpnegoFilter</filter-class>
+
+    <init-param>
+      <param-name>spnego.throw.typedRuntimeException</param-name>
+      <param-value>true</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.allow.basic</param-name>
+      <param-value>false</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.allow.localhost</param-name>
+      <param-value>false</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.allow.unsecure.basic</param-name>
+      <param-value>false</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.login.client.module</param-name>
+      <param-value>spnego-client</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.krb5.conf</param-name>
+      <param-value>krb5.conf</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.login.conf</param-name>
+      <param-value>login.conf</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.login.server.module</param-name>
+      <param-value>spnego-server</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.prompt.ntlm</param-name>
+      <param-value>false</param-value>
+    </init-param>
+
+    <init-param>
+      <param-name>spnego.logger.level</param-name>
+      <param-value>3</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>KerberosSpnegoFilter</filter-name>
+    <url-pattern>/sso/kerberos/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>KerberosRequestRouter</servlet-name>
+    <servlet-class>org.silverpeas.sso.kerberos.KerberosRequestRouter</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>KerberosRequestRouter</servlet-name>
+    <url-pattern>/sso/kerberos/*</url-pattern>
+  </servlet-mapping>
+</web-app>
