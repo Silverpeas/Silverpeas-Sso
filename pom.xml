@@ -101,6 +101,7 @@
   <modules>
     <module>azure</module>
     <module>kerberos</module>
+    <module>saml</module>
   </modules>
 
 </project>
