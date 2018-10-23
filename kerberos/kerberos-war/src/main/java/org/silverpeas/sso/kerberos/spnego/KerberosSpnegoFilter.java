@@ -25,7 +25,6 @@
 package org.silverpeas.sso.kerberos.spnego;
 
 import org.ietf.jgss.GSSException;
-import org.silverpeas.core.util.logging.SilverLogger;
 
 import javax.security.auth.login.LoginException;
 import javax.servlet.Filter;
@@ -195,16 +194,9 @@ public final class KerberosSpnegoFilter implements Filter {
 
       // pre-authenticate
       this.authenticator = new SpnegoAuthenticator(config);
-    } catch (final LoginException le) {
-      throw new ServletException(le);
-    } catch (final GSSException gsse) {
-      throw new ServletException(gsse);
-    } catch (final PrivilegedActionException pae) {
-      throw new ServletException(pae);
-    } catch (final FileNotFoundException fnfe) {
-      throw new ServletException(fnfe);
-    } catch (final URISyntaxException uri) {
-      throw new ServletException(uri);
+    } catch (final LoginException | GSSException | PrivilegedActionException | FileNotFoundException | URISyntaxException e) {
+      logger().error(e);
+      throw new ServletException(e);
     }
   }
 
@@ -227,8 +219,8 @@ public final class KerberosSpnegoFilter implements Filter {
       return;
     }
 
-    final SpnegoHttpServletResponse spnegoResponse =
-        new SpnegoHttpServletResponse((HttpServletResponse) response);
+    final SpnegoHttpServletResponse spnegoResponse = new SpnegoHttpServletResponse(
+        (HttpServletResponse) response);
 
     // client/caller principal
     final SpnegoPrincipal principal;
