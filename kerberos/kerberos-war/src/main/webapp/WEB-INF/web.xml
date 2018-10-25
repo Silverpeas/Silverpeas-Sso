@@ -87,7 +87,7 @@
   </filter>
   <filter-mapping>
     <filter-name>KerberosSpnegoFilter</filter-name>
-    <url-pattern>/sso/kerberos/*</url-pattern>
+    <url-pattern>/sso/kerberos/nego/*</url-pattern>
   </filter-mapping>
 
   <servlet>

@@ -28,8 +28,12 @@ import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
 import org.silverpeas.core.web.sso.SilverpeasSsoPrincipal;
 import org.silverpeas.sso.kerberos.spnego.SpnegoPrincipal;
 
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.core.MediaType;
+import java.io.IOException;
 
 import static java.text.MessageFormat.format;
 import static org.silverpeas.sso.kerberos.KerberosLogger.getLogSessionId;
@@ -40,6 +44,24 @@ import static org.silverpeas.sso.kerberos.settings.KerberosSettings.getSilverpea
  * @author silveryocha
  */
 public class KerberosRequestRouter extends SilverpeasSsoHttpServlet {
+  private static final long serialVersionUID = 2833617793563756703L;
+
+  @Override
+  public void doPost(final HttpServletRequest request, final HttpServletResponse response)
+      throws ServletException, IOException {
+    if (request.getRequestURI().matches("^.+/nego/?$")) {
+      if (request.getParameter("pre-auth") != null) {
+        response.setHeader("Content-Type", MediaType.TEXT_PLAIN + "; charset=UTF-8");
+        response.flushBuffer();
+      } else {
+        super.doPost(request, response);
+      }
+    } else {
+      RequestDispatcher requestDispatcher =
+          getServletConfig().getServletContext().getRequestDispatcher("/kerberos-pre-auth.jsp");
+      requestDispatcher.forward(request, response);
+    }
+  }
 
   @Override
   protected SilverpeasSsoPrincipal computeSsoPrincipal(final HttpServletRequest request,
