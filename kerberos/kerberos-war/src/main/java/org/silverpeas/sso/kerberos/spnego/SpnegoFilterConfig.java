@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.util.Map;
 
 /**
@@ -148,6 +149,7 @@ final class SpnegoFilterConfig { // NOPMD
    */
   private SpnegoFilterConfig(final FilterConfig config)
       throws FileNotFoundException, URISyntaxException {
+    final String serverHome = System.getProperty("jboss.home.dir");
 
     // check if exists
     assert loginConfExists(config.getInitParameter(Constants.LOGIN_CONF));
@@ -156,7 +158,8 @@ final class SpnegoFilterConfig { // NOPMD
     if (null == config.getInitParameter(Constants.KRB5_CONF)) {
       throw new IllegalArgumentException(SpnegoFilterConfig.MISSING_PROPERTY + Constants.KRB5_CONF);
     } else {
-      System.setProperty("java.security.krb5.conf", config.getInitParameter(Constants.KRB5_CONF));
+      System.setProperty("java.security.krb5.conf",
+          Paths.get(serverHome, config.getInitParameter(Constants.KRB5_CONF)).toString());
     }
 
     // specify login conf as a System property
