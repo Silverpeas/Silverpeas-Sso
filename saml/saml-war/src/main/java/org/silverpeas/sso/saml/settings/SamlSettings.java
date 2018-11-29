@@ -30,6 +30,7 @@ import org.opensaml.security.credential.CredentialSupport;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.x509.BasicX509Credential;
 import org.silverpeas.core.SilverpeasRuntimeException;
+import org.silverpeas.core.admin.domain.DomainType;
 import org.silverpeas.core.util.ResourceLocator;
 import org.silverpeas.core.util.SettingBundle;
 
@@ -42,6 +43,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static java.text.MessageFormat.format;
 import static org.silverpeas.core.util.StringUtil.*;
@@ -76,6 +78,15 @@ public class SamlSettings {
       }
     }
     return ResourceLocator.getGeneralSettingBundle().getString("httpServerBase", absoluteUrl);
+  }
+
+  /**
+   * Gets the silverpeas's domain types the SSO is linked to.
+   * @return a Stream of {@link DomainType}.
+   */
+  public static Stream<DomainType> getSilverpeasDomainTypes() {
+    return Stream.of(getSettings().getString("silverpeas.domain.type").split("[,; ]"))
+        .map(String::trim).filter(d -> !d.isEmpty()).map(DomainType::valueOf);
   }
 
   /**
