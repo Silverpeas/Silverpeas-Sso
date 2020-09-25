@@ -40,7 +40,7 @@
 
   <properties>
     <!-- property used by the CI to both deploy a build version and release the next stable version -->
-    <org.opensaml.version>3.3.1</org.opensaml.version>
+    <org.opensaml.version>3.4.5</org.opensaml.version>
   </properties>
 
   <repositories>
