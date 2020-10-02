@@ -58,7 +58,7 @@ import org.opensaml.saml.saml2.metadata.Endpoint;
 import org.opensaml.saml.saml2.metadata.SingleSignOnService;
 import org.opensaml.saml.security.impl.SAMLSignatureProfileValidator;
 import org.opensaml.soap.client.http.AbstractPipelineHttpSOAPClient;
-import org.opensaml.xmlsec.config.JavaCryptoValidationInitializer;
+import org.opensaml.xmlsec.config.impl.JavaCryptoValidationInitializer;
 import org.opensaml.xmlsec.encryption.support.DecryptionException;
 import org.opensaml.xmlsec.encryption.support.InlineEncryptedKeyResolver;
 import org.opensaml.xmlsec.signature.Signature;
@@ -99,7 +99,6 @@ import static org.silverpeas.sso.saml.settings.SamlSettings.*;
  */
 public class SamlFilter implements Filter {
 
-  @SuppressWarnings("ConstantConditions")
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws ServletException, IOException {
@@ -180,7 +179,7 @@ public class SamlFilter implements Filter {
     return artifactResolve;
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private ArtifactResponse sendAndReceiveArtifactResolve(final SamlContext context,
       final ArtifactResolve artifactResolve) {
     try {
@@ -293,8 +292,7 @@ public class SamlFilter implements Filter {
     authnRequest.setIssueInstant(DateTime.now());
     authnRequest.setDestination(getSsoServiceUrl(context.getHttpRequest()));
     authnRequest.setProtocolBinding(SAMLConstants.SAML2_ARTIFACT_BINDING_URI);
-    authnRequest
-        .setAssertionConsumerServiceURL(getAssertionConsumerServiceUrl(context.getHttpRequest()));
+    authnRequest.setAssertionConsumerServiceURL(getAssertionConsumerServiceUrl(context.getHttpRequest()));
     authnRequest.setID(OpenSamlUtils.generateSecureRandomId());
     authnRequest.setIssuer(buildIssuer(context));
     authnRequest.setNameIDPolicy(buildNameIdPolicy());
@@ -316,15 +314,12 @@ public class SamlFilter implements Filter {
   }
 
   private RequestedAuthnContext buildRequestedAuthnContext() {
-    final RequestedAuthnContext requestedAuthnContext = buildSamlObject(
-        RequestedAuthnContext.class);
+    final RequestedAuthnContext requestedAuthnContext = buildSamlObject(RequestedAuthnContext.class);
     requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.MINIMUM);
-    final AuthnContextClassRef passwordAuthnContextClassRef = buildSamlObject(
-        AuthnContextClassRef.class);
+    final AuthnContextClassRef passwordAuthnContextClassRef = buildSamlObject(AuthnContextClassRef.class);
     passwordAuthnContextClassRef.setAuthnContextClassRef(AuthnContext.PASSWORD_AUTHN_CTX);
     requestedAuthnContext.getAuthnContextClassRefs().add(passwordAuthnContextClassRef);
     return requestedAuthnContext;
-
   }
 
   @SuppressWarnings({"unchecked", "ConstantConditions"})

@@ -13,6 +13,10 @@
   <name>Silverpeas - SPNEGO/Kerberos SSO Authentication Web Application</name>
 
   <dependencies>
+    <dependency>
+      <groupId>org.apache.cxf</groupId>
+      <artifactId>cxf-rt-frontend-jaxws</artifactId>
+    </dependency>
   </dependencies>
   
   <build>
