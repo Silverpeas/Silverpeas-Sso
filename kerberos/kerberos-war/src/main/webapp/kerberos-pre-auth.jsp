@@ -25,16 +25,18 @@
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://www.silverpeas.com/tld/viewGenerator" prefix="view" %>
+<c:url var="negoUrl" value="/sso/kerberos/nego"/>
+<c:url var="negoErrorUrl" value="/Login">
+  <c:param name="ErrorCode" value="Error_SsoNotAllowed"/>
+</c:url>
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <title>SPNEGO/Kerberos</title>
+<view:sp-page>
+<view:sp-head-part noLookAndFeel="true">
   <view:includePlugin name="jquery"/>
   <script type="text/javascript">
-    jQuery.ajax({url:'<c:url value="/sso/kerberos/nego?pre-auth=true"/>',type:'GET',dataType:'text',cache:false,success:function(){location.href='<c:url value="/sso/kerberos/nego"/>';},error:function(){location.href='<c:url value="/Login?ErrorCode=Error_SsoNotAllowed"/>';}});
+    jQuery.ajax({url:'${negoUrl}?pre-auth=true',type:'GET',dataType:'text',cache:false,success:function(){location.href='${negoUrl}';},error:function(){location.href='${negoErrorUrl}';}});
   </script>
-</head>
-<body>
-</body>
-</html>
+</view:sp-head-part>
+<view:sp-body-part>
+</view:sp-body-part>
+</view:sp-page>

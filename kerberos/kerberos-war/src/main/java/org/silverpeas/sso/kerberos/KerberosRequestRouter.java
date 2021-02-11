@@ -24,6 +24,7 @@
 
 package org.silverpeas.sso.kerberos;
 
+import org.silverpeas.core.SilverpeasExceptionMessages.LightExceptionMessage;
 import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
 import org.silverpeas.core.web.sso.SilverpeasSsoPrincipal;
 import org.silverpeas.sso.kerberos.spnego.SpnegoPrincipal;
@@ -47,19 +48,22 @@ public class KerberosRequestRouter extends SilverpeasSsoHttpServlet {
   private static final long serialVersionUID = 2833617793563756703L;
 
   @Override
-  public void doPost(final HttpServletRequest request, final HttpServletResponse response)
-      throws ServletException, IOException {
-    if (request.getRequestURI().matches("^.+/nego/?$")) {
-      if (request.getParameter("pre-auth") != null) {
-        response.setHeader("Content-Type", MediaType.TEXT_PLAIN + "; charset=UTF-8");
-        response.flushBuffer();
+  public void doPost(final HttpServletRequest request, final HttpServletResponse response) {
+    try {
+      if (request.getRequestURI().matches("^.+/nego/?$")) {
+        if (request.getParameter("pre-auth") != null) {
+          response.setHeader("Content-Type", MediaType.TEXT_PLAIN + "; charset=UTF-8");
+          response.flushBuffer();
+        } else {
+          super.doPost(request, response);
+        }
       } else {
-        super.doPost(request, response);
+        RequestDispatcher requestDispatcher = getServletConfig().getServletContext().getRequestDispatcher("/kerberos-pre-auth.jsp");
+        requestDispatcher.forward(request, response);
       }
-    } else {
-      RequestDispatcher requestDispatcher =
-          getServletConfig().getServletContext().getRequestDispatcher("/kerberos-pre-auth.jsp");
-      requestDispatcher.forward(request, response);
+    } catch (ServletException | IOException e) {
+      logger().error(new LightExceptionMessage(this, e).singleLineWith("Error while performing SSO authentication"));
+      response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
   }
 
