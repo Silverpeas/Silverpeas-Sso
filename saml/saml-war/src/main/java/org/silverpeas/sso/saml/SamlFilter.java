@@ -65,6 +65,7 @@ import org.opensaml.xmlsec.signature.Signature;
 import org.opensaml.xmlsec.signature.support.SignatureException;
 import org.opensaml.xmlsec.signature.support.SignatureValidator;
 import org.silverpeas.core.SilverpeasRuntimeException;
+import org.silverpeas.core.util.StringUtil;
 
 import javax.annotation.Nonnull;
 import javax.security.auth.message.AuthException;
@@ -213,7 +214,7 @@ public class SamlFilter implements Filter {
   @SuppressWarnings({"unchecked", "ConstantConditions"})
   private void validateDestinationAndLifetime(final SamlContext context,
       final ArtifactResponse artifactResponse) {
-    final MessageContext msgContext = new MessageContext<ArtifactResponse>();
+    final MessageContext<ArtifactResponse> msgContext = new MessageContext<>();
     msgContext.setMessage(artifactResponse);
     final SAMLMessageInfoContext messageInfoContext = msgContext
         .getSubcontext(SAMLMessageInfoContext.class, true);
@@ -291,12 +292,12 @@ public class SamlFilter implements Filter {
     final AuthnRequest authnRequest = buildSamlObject(AuthnRequest.class);
     authnRequest.setIssueInstant(DateTime.now());
     authnRequest.setDestination(getSsoServiceUrl(context.getHttpRequest()));
-    authnRequest.setProtocolBinding(SAMLConstants.SAML2_ARTIFACT_BINDING_URI);
+    authnRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
     authnRequest.setAssertionConsumerServiceURL(getAssertionConsumerServiceUrl(context.getHttpRequest()));
     authnRequest.setID(OpenSamlUtils.generateSecureRandomId());
     authnRequest.setIssuer(buildIssuer(context));
     authnRequest.setNameIDPolicy(buildNameIdPolicy());
-    authnRequest.setRequestedAuthnContext(buildRequestedAuthnContext());
+    authnRequest.setRequestedAuthnContext(buildRequestedAuthnContext(context));
     return authnRequest;
   }
 
@@ -309,22 +310,22 @@ public class SamlFilter implements Filter {
   private NameIDPolicy buildNameIdPolicy() {
     final NameIDPolicy nameIDPolicy = buildSamlObject(NameIDPolicy.class);
     nameIDPolicy.setAllowCreate(false);
-    nameIDPolicy.setFormat(NameIDType.TRANSIENT);
+    nameIDPolicy.setFormat(NameIDType.UNSPECIFIED);
     return nameIDPolicy;
   }
 
-  private RequestedAuthnContext buildRequestedAuthnContext() {
+  private RequestedAuthnContext buildRequestedAuthnContext(final SamlContext context) {
     final RequestedAuthnContext requestedAuthnContext = buildSamlObject(RequestedAuthnContext.class);
-    requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.MINIMUM);
-    final AuthnContextClassRef passwordAuthnContextClassRef = buildSamlObject(AuthnContextClassRef.class);
-    passwordAuthnContextClassRef.setAuthnContextClassRef(AuthnContext.PASSWORD_AUTHN_CTX);
-    requestedAuthnContext.getAuthnContextClassRefs().add(passwordAuthnContextClassRef);
+    requestedAuthnContext.setComparison(getAuthnContextComparison(context.getHttpRequest()));
+    final AuthnContextClassRef authnContextClassRef = buildSamlObject(AuthnContextClassRef.class);
+    authnContextClassRef.setAuthnContextClassRef(getAuthnContextClass(context.getHttpRequest()));
+    requestedAuthnContext.getAuthnContextClassRefs().add(authnContextClassRef);
     return requestedAuthnContext;
   }
 
-  @SuppressWarnings({"unchecked", "ConstantConditions"})
+  @SuppressWarnings({"ConstantConditions"})
   private void redirectUserWithRequest(final SamlContext context, final AuthnRequest authnRequest) {
-    final MessageContext msgContext = new MessageContext();
+    final MessageContext<SAMLObject> msgContext = new MessageContext<>();
     msgContext.setMessage(authnRequest);
     final SAMLPeerEntityContext peerEntityContext = msgContext
         .getSubcontext(SAMLPeerEntityContext.class, true);
@@ -383,10 +384,15 @@ public class SamlFilter implements Filter {
 
   private void validatePrincipal(final SamlContext context, final Assertion assertion)
       throws AuthException {
-    final String principal = assertion.getSubject().getNameID().getValue();
-    if (isNotDefined(principal)) {
-      throw new AuthException("no principal detected");
-    }
+    final String principal = Optional.ofNullable(assertion)
+        .map(Assertion::getSubject)
+        .map(s -> {
+          OpenSamlUtils.logSamlObject(s);
+          return s.getNameID();
+        })
+        .map(NameIDType::getValue)
+        .filter(StringUtil::isDefined)
+        .orElseThrow(() -> new AuthException("no principal detected"));
     setSessionPrincipal(context.getHttpRequest(), principal);
   }
 
@@ -397,7 +403,12 @@ public class SamlFilter implements Filter {
           .unmarshallFromReader(XMLObjectProviderRegistrySupport.getParserPool(),
               new StringReader(samlAsXml));
       final Response response = (Response) xmlObj;
-      return response.getAssertions().get(0);
+      return response.getAssertions().stream().findFirst().orElseThrow(() -> {
+        final Optional<Status> status = Optional.ofNullable(response.getStatus());
+        return new AuthException(format("SAML response status code {0} with message -> {1}",
+            status.map(Status::getStatusCode).map(StatusCode::getValue).orElse("N/A"),
+            status.map(Status::getStatusMessage).map(StatusMessage::getMessage).orElse("N/A")));
+      });
     } catch (Exception e) {
       logger().error(e);
       throw new AuthException(e.getMessage());

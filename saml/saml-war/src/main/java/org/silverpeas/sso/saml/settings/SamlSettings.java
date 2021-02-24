@@ -25,6 +25,8 @@
 package org.silverpeas.sso.saml.settings;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.opensaml.saml.saml2.core.AuthnContext;
+import org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.CredentialSupport;
 import org.opensaml.security.credential.UsageType;
@@ -46,6 +48,9 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.text.MessageFormat.format;
+import static java.util.stream.Collectors.toMap;
+import static org.opensaml.saml.saml2.core.AuthnContext.*;
+import static org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration.*;
 import static org.silverpeas.core.util.StringUtil.*;
 import static org.silverpeas.sso.saml.SamlLogger.logger;
 
@@ -58,8 +63,22 @@ public class SamlSettings {
   private static final int DEFAULT_HTTP_PORT = 80;
   private static final int DEFAULT_HTTPS_PORT = 443;
   private static final String SETTINGS_PATH = "org.silverpeas.sso.saml";
-  private static Map<String, Pair<String, BasicX509Credential>> idpCertificateCache = new
-      HashMap<>();
+  private static final Map<String, Pair<String, BasicX509Credential>> idpCertificateCache = new HashMap<>();
+  private static final Map<String, AuthnContextComparisonTypeEnumeration> acComparisons = Stream
+      .of(EXACT, MINIMUM, MAXIMUM, BETTER)
+      .collect(toMap(c -> c.toString().toLowerCase(), c -> c));
+  private static final Map<String, String> acClasses = Stream
+      .of(IP_AUTHN_CTX, IP_PASSWORD_AUTHN_CTX, KERBEROS_AUTHN_CTX, MOFU_AUTHN_CTX, MTFU_AUTHN_CTX,
+          MOFC_AUTHN_CTX, MTFC_AUTHN_CTX, PASSWORD_AUTHN_CTX, PPT_AUTHN_CTX,
+          PREVIOUS_SESSION_AUTHN_CTX, X509_AUTHN_CTX, PGP_AUTHN_CTX, SPKI_AUTHN_CTX,
+          XML_DSIG_AUTHN_CTX, SMARTCARD_AUTHN_CTX, SMARTCARD_PKI_AUTHN_CTX, SOFTWARE_PKI_AUTHN_CTX,
+          TELEPHONY_AUTHN_CTX, NOMAD_TELEPHONY_AUTHN_CTX, PERSONAL_TELEPHONY_AUTHN_CTX,
+          AUTHENTICATED_TELEPHONY_AUTHN_CTX, SRP_AUTHN_CTX, TLS_CLIENT_AUTHN_CTX,
+          TIME_SYNC_TOKEN_AUTHN_CTX, UNSPECIFIED_AUTHN_CTX)
+      .collect(toMap(s -> {
+        final String[] split = s.split("[:]");
+        return split[split.length - 1].toLowerCase();
+      }, c -> c));
 
   private SamlSettings() {
   }
@@ -126,7 +145,7 @@ public class SamlSettings {
   public static String getAssertionConsumerServiceUrl(final HttpServletRequest httpRequest) {
     String url = getServerUrl(httpRequest) + APPLICATION_URL + "/sso/saml";
     final String domainId = httpRequest.getParameter("domainId");
-    if (isDefined(domainId) && !domainId.equals(getSilverpeasDefaultDomainId())) {
+    if (isDefined(domainId)) {
       url += "?domainId=" + domainId;
     }
     return url;
@@ -175,5 +194,35 @@ public class SamlSettings {
       idpCertificateCache.put(domainId, idpCertificateDomainCache);
     }
     return idpCertificateDomainCache.getValue();
+  }
+
+  /**
+   * Gets the comparison method to use for authentication context.
+   * <p>
+   *   If not defined, {@link AuthnContextComparisonTypeEnumeration#MINIMUM} is taken into account.
+   * </p>
+   * @return a {@link AuthnContextComparisonTypeEnumeration} instance.
+   */
+  public static AuthnContextComparisonTypeEnumeration getAuthnContextComparison(
+      final HttpServletRequest httpRequest) {
+    final String comparison = getSettings().getString(
+        format("domain.{0}.saml.ac.comparison", getSilverpeasDomainId(httpRequest)).toLowerCase(),
+        EMPTY);
+    return acComparisons.getOrDefault(comparison, MINIMUM);
+  }
+
+  /**
+   * Gets the class to use for authentication context.
+   * <p>
+   *   If not defined, {@link AuthnContext#PASSWORD_AUTHN_CTX} is
+   *   taken into account.
+   * </p>
+   * @return a {@link AuthnContext} constant about class.
+   */
+  public static String getAuthnContextClass(final HttpServletRequest httpRequest) {
+    final String clazz = getSettings().getString(
+        format("domain.{0}.saml.ac.class", getSilverpeasDomainId(httpRequest)).toLowerCase(),
+        EMPTY);
+    return acClasses.getOrDefault(clazz, PASSWORD_AUTHN_CTX);
   }
 }
