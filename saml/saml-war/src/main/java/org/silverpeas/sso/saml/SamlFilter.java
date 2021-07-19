@@ -58,10 +58,13 @@ import org.opensaml.saml.saml2.metadata.Endpoint;
 import org.opensaml.saml.saml2.metadata.SingleSignOnService;
 import org.opensaml.saml.security.impl.SAMLSignatureProfileValidator;
 import org.opensaml.soap.client.http.AbstractPipelineHttpSOAPClient;
+import org.opensaml.xmlsec.SignatureSigningParameters;
 import org.opensaml.xmlsec.config.impl.JavaCryptoValidationInitializer;
+import org.opensaml.xmlsec.context.SecurityParametersContext;
 import org.opensaml.xmlsec.encryption.support.DecryptionException;
 import org.opensaml.xmlsec.encryption.support.InlineEncryptedKeyResolver;
 import org.opensaml.xmlsec.signature.Signature;
+import org.opensaml.xmlsec.signature.support.SignatureConstants;
 import org.opensaml.xmlsec.signature.support.SignatureException;
 import org.opensaml.xmlsec.signature.support.SignatureValidator;
 import org.silverpeas.core.SilverpeasRuntimeException;
@@ -186,6 +189,7 @@ public class SamlFilter implements Filter {
     try {
       final MessageContext<ArtifactResolve> contextOut = new MessageContext<>();
       contextOut.setMessage(artifactResolve);
+      signingOptionallyWithSP(context, contextOut);
       final InOutOperationContext<ArtifactResponse, ArtifactResolve> opContext = new
           ProfileRequestContext<>();
       opContext.setOutboundMessageContext(contextOut);
@@ -327,11 +331,10 @@ public class SamlFilter implements Filter {
   private void redirectUserWithRequest(final SamlContext context, final AuthnRequest authnRequest) {
     final MessageContext<SAMLObject> msgContext = new MessageContext<>();
     msgContext.setMessage(authnRequest);
-    final SAMLPeerEntityContext peerEntityContext = msgContext
-        .getSubcontext(SAMLPeerEntityContext.class, true);
-    final SAMLEndpointContext endpointContext = peerEntityContext
-        .getSubcontext(SAMLEndpointContext.class, true);
+    final SAMLPeerEntityContext peerEntityContext = msgContext.getSubcontext(SAMLPeerEntityContext.class, true);
+    final SAMLEndpointContext endpointContext = peerEntityContext.getSubcontext(SAMLEndpointContext.class, true);
     endpointContext.setEndpoint(getIdpEndpoint(context));
+    signingOptionallyWithSP(context, msgContext);
     final HTTPRedirectDeflateEncoder encoder = new HTTPRedirectDeflateEncoder();
     encoder.setMessageContext(msgContext);
     encoder.setHttpServletResponse(context.getHttpResponse());
@@ -360,6 +363,9 @@ public class SamlFilter implements Filter {
   @SuppressWarnings("ConstantConditions")
   private void validateSignature(final SamlContext context, final Assertion assertion)
       throws SignatureException {
+    if (!assertion.isSigned()) {
+      throw new SignatureException("The SAML Assertion was not signed");
+    }
     final Signature signature = assertion.getSignature();
     final SAMLSignatureProfileValidator profileValidator = new SAMLSignatureProfileValidator();
     profileValidator.validate(signature);
@@ -371,14 +377,27 @@ public class SamlFilter implements Filter {
     logger().debug(() -> format("Processing SAML response for session {0}.",
         getLogSessionId(context.getHttpRequest())));
     validateSignature(context, assertion);
-    validateDelay(assertion);
+    validateDelay(context, assertion);
     validatePrincipal(context, assertion);
   }
 
-  private void validateDelay(final Assertion assertion) throws AuthException {
-    final DateTime notOnOrAfter = assertion.getConditions().getNotOnOrAfter();
-    if (notOnOrAfter != null && !notOnOrAfter.isAfterNow()) {
-      throw new AuthException("delay expired");
+  private void validateDelay(final SamlContext context, final Assertion assertion)
+      throws AuthException {
+    if (isNotBeforeAssertionConditionEnabled(context.httpRequest)) {
+      final DateTime notBefore = assertion.getConditions().getNotBefore();
+      if (notBefore == null) {
+        throw new AuthException("'not before' condition is missing");
+      } else if (notBefore.isAfterNow()) {
+        throw new AuthException("authentication is not yet possible");
+      }
+    }
+    if (isNotOnOrAfterAssertionConditionEnabled(context.httpRequest)) {
+      final DateTime notOnOrAfter = assertion.getConditions().getNotOnOrAfter();
+      if (notOnOrAfter == null) {
+        throw new AuthException("'not on or after' condition is missing");
+      } else if (!notOnOrAfter.isAfterNow()) {
+        throw new AuthException("authentication delay expired");
+      }
     }
   }
 
@@ -413,6 +432,17 @@ public class SamlFilter implements Filter {
       logger().error(e);
       throw new AuthException(e.getMessage());
     }
+  }
+
+  private <T extends SAMLObject> void signingOptionallyWithSP(final SamlContext context,
+      final MessageContext<T> msgContext) {
+    getSpCredential(context.httpRequest).ifPresent(c -> {
+      final SignatureSigningParameters signatureSigningParameters = new SignatureSigningParameters();
+      signatureSigningParameters.setSigningCredential(c);
+      signatureSigningParameters.setSignatureAlgorithm(SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA256);
+      signatureSigningParameters.setSignatureCanonicalizationAlgorithm(SignatureConstants.ALGO_ID_C14N_EXCL_OMIT_COMMENTS);
+      msgContext.getSubcontext(SecurityParametersContext.class, true).setSignatureSigningParameters(signatureSigningParameters);
+    });
   }
 
   @Override
