@@ -38,11 +38,11 @@ import org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration;
 import org.opensaml.saml.saml2.metadata.Endpoint;
 import org.opensaml.saml.saml2.metadata.EntityDescriptor;
 import org.opensaml.saml.saml2.metadata.IDPSSODescriptor;
+import org.opensaml.saml.saml2.metadata.KeyDescriptor;
 import org.opensaml.saml.saml2.metadata.SPSSODescriptor;
 import org.opensaml.saml.saml2.metadata.SSODescriptor;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.CredentialSupport;
-import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
 import org.opensaml.security.crypto.KeySupport;
 import org.opensaml.security.x509.BasicX509Credential;
@@ -74,12 +74,15 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static java.text.MessageFormat.format;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.nonNull;
 import static java.util.Optional.of;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toMap;
 import static org.opensaml.saml.saml2.core.AuthnContext.*;
 import static org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration.*;
+import static org.opensaml.security.credential.UsageType.SIGNING;
+import static org.opensaml.security.credential.UsageType.UNSPECIFIED;
 import static org.silverpeas.core.util.StringUtil.*;
 import static org.silverpeas.sso.saml.SamlLogger.logger;
 
@@ -267,7 +270,8 @@ public class SamlSettings {
     return ofNullable(ofNullable(ssoDescriptor)
         .stream()
         .flatMap(d -> d.getKeyDescriptors().stream())
-        .filter(k -> UsageType.SIGNING.equals(k.getUse()))
+        .sorted(comparing(KeyDescriptor::getUse))
+        .filter(k -> SIGNING.equals(k.getUse()) || UNSPECIFIED.equals(k.getUse()))
         .flatMap(k -> k.getKeyInfo().getX509Datas().stream())
         .flatMap(x -> x.getX509Certificates().stream())
         .map(c -> {
@@ -275,7 +279,7 @@ public class SamlSettings {
             final X509Certificate certificate = KeyInfoSupport.getCertificate(c);
             if (certificate != null) {
               final BasicX509Credential credential = CredentialSupport.getSimpleCredential(certificate, null);
-              credential.setUsageType(UsageType.SIGNING);
+              credential.setUsageType(SIGNING);
               return (Credential) credential;
             }
             return null;
@@ -310,7 +314,7 @@ public class SamlSettings {
             throw new SAMLRuntimeException(e);
           }
         });
-        credential.setUsageType(UsageType.SIGNING);
+        credential.setUsageType(SIGNING);
         return Pair.of(certificatePath.get(), credential);
       } catch (Exception e) {
         logger().error(e);
