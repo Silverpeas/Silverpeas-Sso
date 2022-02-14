@@ -63,6 +63,12 @@
       <groupId>org.opensaml</groupId>
       <artifactId>opensaml-core</artifactId>
       <version>${org.opensaml.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.opensaml</groupId>
