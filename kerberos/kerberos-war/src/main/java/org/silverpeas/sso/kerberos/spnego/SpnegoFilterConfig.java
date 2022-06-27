@@ -168,7 +168,7 @@ final class SpnegoFilterConfig { // NOPMD
           SpnegoFilterConfig.MISSING_PROPERTY + Constants.LOGIN_CONF);
     } else {
       System.setProperty("java.security.auth.login.config",
-          config.getInitParameter(Constants.LOGIN_CONF));
+          Paths.get(serverHome, config.getInitParameter(Constants.LOGIN_CONF)).toString());
     }
 
     // check if exists and no options specified
