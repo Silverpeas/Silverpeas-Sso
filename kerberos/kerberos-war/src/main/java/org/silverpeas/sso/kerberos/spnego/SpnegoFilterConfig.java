@@ -31,7 +31,6 @@ import javax.security.auth.login.Configuration;
 import javax.servlet.FilterConfig;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -147,29 +146,25 @@ final class SpnegoFilterConfig { // NOPMD
   /**
    * Class is a Singleton. Use the static getInstance() method.
    */
-  private SpnegoFilterConfig(final FilterConfig config)
-      throws FileNotFoundException, URISyntaxException {
+  private SpnegoFilterConfig(final FilterConfig config) throws FileNotFoundException {
     final String serverHome = System.getProperty("jboss.home.dir");
 
     // check if exists
-    assert loginConfExists(config.getInitParameter(Constants.LOGIN_CONF));
+    final String loginConfFilename = config.getInitParameter(Constants.LOGIN_CONF);
+    assert loginConfExists(serverHome, loginConfFilename);
 
     // specify krb5 conf as a System property
-    if (null == config.getInitParameter(Constants.KRB5_CONF)) {
+    final String kbr5ConfFileName = config.getInitParameter(Constants.KRB5_CONF);
+    if (null == kbr5ConfFileName) {
       throw new IllegalArgumentException(SpnegoFilterConfig.MISSING_PROPERTY + Constants.KRB5_CONF);
     } else {
       System.setProperty("java.security.krb5.conf",
-          Paths.get(serverHome, config.getInitParameter(Constants.KRB5_CONF)).toString());
+          Paths.get(serverHome, kbr5ConfFileName).toString());
     }
 
     // specify login conf as a System property
-    if (null == config.getInitParameter(Constants.LOGIN_CONF)) {
-      throw new IllegalArgumentException(
-          SpnegoFilterConfig.MISSING_PROPERTY + Constants.LOGIN_CONF);
-    } else {
-      System.setProperty("java.security.auth.login.config",
-          Paths.get(serverHome, config.getInitParameter(Constants.LOGIN_CONF)).toString());
-    }
+    System.setProperty("java.security.auth.login.config",
+        Paths.get(serverHome, loginConfFilename).toString());
 
     // check if exists and no options specified
     doClientModule(config.getInitParameter(Constants.CLIENT_MODULE));
@@ -272,7 +267,7 @@ final class SpnegoFilterConfig { // NOPMD
     // storeKey must be set to true
     if (opt.containsKey("storeKey")) {
       final Object store = opt.get("storeKey");
-      if (null == store || !Boolean.parseBoolean((String) store)) {
+      if (null == store || !Boolean.parseBoolean(store.toString())) {
         throw new UnsupportedOperationException(
             "Login Module for server " + "must have storeKey option in login file set to true.");
       }
@@ -281,10 +276,14 @@ final class SpnegoFilterConfig { // NOPMD
           "Login Module for server does " + "not have the storeKey option defined in login file.");
     }
 
-    if (opt.containsKey("useKeyTab") && opt.containsKey("principal") && opt.containsKey("keyTab")) {
-      this.canUseKeyTab = true;
-    } else {
-      this.canUseKeyTab = false;
+    this.canUseKeyTab =
+        opt.containsKey("useKeyTab") && opt.containsKey("principal") && opt.containsKey("keyTab");
+
+    final Object debug = opt.get("debug");
+    if (null != debug && Boolean.parseBoolean(debug.toString())) {
+      System.setProperty("sun.security.jgss.debug", "true");
+      System.setProperty("sun.security.krb5.debug", "true");
+      System.setProperty("sun.security.spnego.debug", "true");
     }
   }
 
@@ -391,14 +390,14 @@ final class SpnegoFilterConfig { // NOPMD
     return this.allowUnsecure;
   }
 
-  private boolean loginConfExists(final String loginconf)
-      throws FileNotFoundException, URISyntaxException {
+  private boolean loginConfExists(final String serverHome, final String loginconf)
+      throws FileNotFoundException {
 
     // confirm login.conf file exists
     if (null == loginconf || loginconf.isEmpty()) {
       throw new FileNotFoundException("Must provide a login.conf file.");
     } else {
-      final File file = new File(new URI(loginconf));
+      final File file = Paths.get(serverHome, loginconf).toFile();
       if (!file.exists()) {
         throw new FileNotFoundException(loginconf);
       }
