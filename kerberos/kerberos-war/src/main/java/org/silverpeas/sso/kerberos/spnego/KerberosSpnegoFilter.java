@@ -26,7 +26,6 @@ package org.silverpeas.sso.kerberos.spnego;
 
 import org.ietf.jgss.GSSException;
 
-import javax.security.auth.login.LoginException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -38,7 +37,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.security.PrivilegedActionException;
 
 import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
 
@@ -180,21 +178,15 @@ import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
  */
 public final class KerberosSpnegoFilter implements Filter {
 
-  /**
-   * Object for performing Basic and SPNEGO authentication.
-   */
-  private transient SpnegoAuthenticator authenticator = null;
-
   @Override
   public void init(final FilterConfig filterConfig) throws ServletException {
-
     try {
       // set some System properties
       final SpnegoFilterConfig config = SpnegoFilterConfig.getInstance(filterConfig);
 
       // pre-authenticate
-      this.authenticator = new SpnegoAuthenticator(config);
-    } catch (final LoginException | GSSException | PrivilegedActionException | FileNotFoundException | URISyntaxException e) {
+      SpnegoManager.get().init(config);
+    } catch (final FileNotFoundException | URISyntaxException e) {
       logger().error(e);
       throw new ServletException(e);
     }
@@ -202,10 +194,7 @@ public final class KerberosSpnegoFilter implements Filter {
 
   @Override
   public void destroy() {
-    if (null != this.authenticator) {
-      this.authenticator.dispose();
-      this.authenticator = null;
-    }
+    SpnegoManager.get().logoutAuthenticator();
   }
 
   @Override
@@ -223,17 +212,20 @@ public final class KerberosSpnegoFilter implements Filter {
         (HttpServletResponse) response);
 
     // client/caller principal
+    final SpnegoManager spnegoManager = SpnegoManager.get();
     final SpnegoPrincipal principal;
     try {
-      principal = this.authenticator.authenticate(httpRequest, spnegoResponse);
+      principal = spnegoManager.getAuthenticator().authenticate(httpRequest, spnegoResponse);
     } catch (GSSException gsse) {
       logger().error("HTTP Authorization Header=" + httpRequest.getHeader(Constants.AUTHZ_HEADER));
-      if (this.authenticator.isTypedRuntimeExceptionThrown()) {
+      if (spnegoManager.isTypedRuntimeExceptionThrown()) {
         throw new SpnegoGSSException(gsse);
       }
       throw new ServletException(gsse);
+    } catch (SpnegoUnauthenticatedException | SpnegoUnsupportedOperationException re) {
+      throw re;
     } catch (RuntimeException re) {
-      if (this.authenticator.isTypedRuntimeExceptionThrown()) {
+      if (spnegoManager.isTypedRuntimeExceptionThrown()) {
         throw new SpnegoUnsupportedOperationException(re);
       }
       throw re;
@@ -247,7 +239,7 @@ public final class KerberosSpnegoFilter implements Filter {
     // assert
     if (null == principal) {
       logger().error("Principal was null.");
-      if (this.authenticator.isTypedRuntimeExceptionThrown()) {
+      if (spnegoManager.isTypedRuntimeExceptionThrown()) {
         throw new SpnegoUnauthenticatedException("Principal was null.");
       }
       spnegoResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, true);

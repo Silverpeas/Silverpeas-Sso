@@ -106,11 +106,6 @@ public final class SpnegoAuthenticator {
   private static final GSSManager MANAGER = GSSManager.getInstance();
 
   /**
-   * Flag to indicate if typed runtime exception is thrown.
-   */
-  private final transient boolean throwTypedRuntimeException;
-
-  /**
    * Flag to indicate if BASIC Auth is allowed.
    */
   private final transient boolean allowBasic;
@@ -167,7 +162,6 @@ public final class SpnegoAuthenticator {
 
     logger().debug("config=" + config);
 
-    this.throwTypedRuntimeException = config.isTypedRuntimeExceptionThrown();
     this.allowBasic = config.isBasicAllowed();
     this.allowUnsecure = config.isUnsecureAllowed();
     this.clientModuleName = config.getClientLoginModule();
@@ -501,13 +495,5 @@ public final class SpnegoAuthenticator {
   private boolean isLocalhost(final HttpServletRequest req) {
 
     return req.getLocalAddr().equals(req.getRemoteAddr());
-  }
-
-  /**
-   * Returns true if typed runtime exceptions have to be thrown.
-   * @return true if typed runtime exceptions have to be thrown
-   */
-  public boolean isTypedRuntimeExceptionThrown() {
-    return throwTypedRuntimeException;
   }
 }

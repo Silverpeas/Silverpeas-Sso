@@ -25,8 +25,10 @@
 package org.silverpeas.sso.kerberos;
 
 import org.silverpeas.core.SilverpeasExceptionMessages.LightExceptionMessage;
+import org.silverpeas.core.admin.user.model.User;
 import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
 import org.silverpeas.core.web.sso.SilverpeasSsoPrincipal;
+import org.silverpeas.sso.kerberos.spnego.SpnegoManager;
 import org.silverpeas.sso.kerberos.spnego.SpnegoPrincipal;
 
 import javax.servlet.RequestDispatcher;
@@ -37,6 +39,7 @@ import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 
 import static java.text.MessageFormat.format;
+import static java.util.Optional.ofNullable;
 import static org.silverpeas.sso.kerberos.KerberosLogger.getLogSessionId;
 import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
 import static org.silverpeas.sso.kerberos.settings.KerberosSettings.getSilverpeasDomainId;
@@ -58,7 +61,16 @@ public class KerberosRequestRouter extends SilverpeasSsoHttpServlet {
           super.doPost(request, response);
         }
       } else {
-        RequestDispatcher requestDispatcher = getServletConfig().getServletContext().getRequestDispatcher("/kerberos-pre-auth.jsp");
+        final String urlToDispatch;
+        if (request.getRequestURI().matches("^.+/reload$")) {
+          if (ofNullable(User.getCurrentRequester()).filter(User::isAccessAdmin).isPresent()) {
+            SpnegoManager.get().reload();
+          }
+          urlToDispatch = "/Login";
+        } else {
+          urlToDispatch = "/kerberos-pre-auth.jsp";
+        }
+        RequestDispatcher requestDispatcher = getServletConfig().getServletContext().getRequestDispatcher(urlToDispatch);
         requestDispatcher.forward(request, response);
       }
     } catch (ServletException | IOException e) {
