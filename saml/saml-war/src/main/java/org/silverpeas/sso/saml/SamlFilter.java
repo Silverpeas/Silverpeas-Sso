@@ -67,8 +67,8 @@ import org.opensaml.xmlsec.signature.Signature;
 import org.opensaml.xmlsec.signature.support.SignatureConstants;
 import org.opensaml.xmlsec.signature.support.SignatureException;
 import org.opensaml.xmlsec.signature.support.SignatureValidator;
-import org.silverpeas.core.SilverpeasRuntimeException;
-import org.silverpeas.core.util.StringUtil;
+import org.silverpeas.kernel.SilverpeasRuntimeException;
+import org.silverpeas.kernel.util.StringUtil;
 
 import javax.annotation.Nonnull;
 import javax.security.auth.message.AuthException;
@@ -89,7 +89,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static java.text.MessageFormat.format;
-import static org.silverpeas.core.util.StringUtil.*;
+import static org.silverpeas.kernel.util.StringUtil.*;
 import static org.silverpeas.sso.saml.OpenSamlUtils.buildSamlObject;
 import static org.silverpeas.sso.saml.OpenSamlUtils.logSamlObject;
 import static org.silverpeas.sso.saml.SamlAuthHelper.invalidateAuth;

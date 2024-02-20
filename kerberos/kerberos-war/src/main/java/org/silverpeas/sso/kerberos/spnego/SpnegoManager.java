@@ -51,7 +51,7 @@ public class SpnegoManager {
   private SpnegoAuthenticator authenticator = null;
 
   public static SpnegoManager get() {
-    return ServiceProvider.getSingleton(SpnegoManager.class);
+    return ServiceProvider.getService(SpnegoManager.class);
   }
 
   /**

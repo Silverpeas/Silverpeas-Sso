@@ -24,7 +24,7 @@
 
 package org.silverpeas.sso.saml;
 
-import org.silverpeas.core.util.logging.SilverLogger;
+import org.silverpeas.kernel.logging.SilverLogger;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;

@@ -47,12 +47,12 @@ import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
 import org.opensaml.security.crypto.KeySupport;
 import org.opensaml.security.x509.BasicX509Credential;
 import org.opensaml.xmlsec.keyinfo.KeyInfoSupport;
-import org.silverpeas.core.SilverpeasRuntimeException;
 import org.silverpeas.core.admin.domain.DomainType;
-import org.silverpeas.core.util.Pair;
-import org.silverpeas.core.util.ResourceLocator;
-import org.silverpeas.core.util.SettingBundle;
-import org.silverpeas.core.util.StringUtil;
+import org.silverpeas.kernel.SilverpeasRuntimeException;
+import org.silverpeas.kernel.bundle.ResourceLocator;
+import org.silverpeas.kernel.bundle.SettingBundle;
+import org.silverpeas.kernel.util.Pair;
+import org.silverpeas.kernel.util.StringUtil;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
@@ -83,7 +83,7 @@ import static org.opensaml.saml.saml2.core.AuthnContext.*;
 import static org.opensaml.saml.saml2.core.AuthnContextComparisonTypeEnumeration.*;
 import static org.opensaml.security.credential.UsageType.SIGNING;
 import static org.opensaml.security.credential.UsageType.UNSPECIFIED;
-import static org.silverpeas.core.util.StringUtil.*;
+import static org.silverpeas.kernel.util.StringUtil.*;
 import static org.silverpeas.sso.saml.SamlLogger.logger;
 
 /**
