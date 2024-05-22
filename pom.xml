@@ -53,19 +53,22 @@
     <dependency>
       <groupId>javax</groupId>
       <artifactId>javaee-api</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>javax.servlet.jsp.jstl</groupId>
       <artifactId>javax.servlet.jsp.jstl-api</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.glassfish.web</groupId>
       <artifactId>javax.servlet.jsp.jstl</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
-      <scope>compile</scope>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.silverpeas.core</groupId>
