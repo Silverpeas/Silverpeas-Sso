@@ -40,7 +40,7 @@
 
   <properties>
     <!-- property used by the CI to both deploy a build version and release the next stable version -->
-    <org.opensaml.version>3.4.5</org.opensaml.version>
+    <org.opensaml.version>3.4.6</org.opensaml.version>
   </properties>
 
   <repositories>
@@ -89,12 +89,6 @@
       <groupId>org.opensaml</groupId>
       <artifactId>opensaml-messaging-impl</artifactId>
       <version>${org.opensaml.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <version>3.0.1</version>
-      <scope>provided</scope>
     </dependency>
   </dependencies>
 
