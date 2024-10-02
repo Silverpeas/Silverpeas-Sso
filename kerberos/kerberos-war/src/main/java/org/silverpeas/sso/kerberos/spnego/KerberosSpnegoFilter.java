@@ -26,17 +26,11 @@ package org.silverpeas.sso.kerberos.spnego;
 
 import org.ietf.jgss.GSSException;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URISyntaxException;
 
 import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
 
@@ -186,7 +180,7 @@ public final class KerberosSpnegoFilter implements Filter {
 
       // pre-authenticate
       SpnegoManager.get().init(config);
-    } catch (final FileNotFoundException | URISyntaxException e) {
+    } catch (final FileNotFoundException e) {
       logger().error(e);
       throw new ServletException(e);
     }

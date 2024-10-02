@@ -39,7 +39,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.security.PrivilegedActionException;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -108,56 +107,56 @@ public final class SpnegoAuthenticator {
   /**
    * Flag to indicate if BASIC Auth is allowed.
    */
-  private final transient boolean allowBasic;
+  private final boolean allowBasic;
 
   /**
    * Flag to indicate if credential delegation is allowed.
    */
-  private final transient boolean allowDelegation;
+  private final boolean allowDelegation;
 
   /**
    * Flag to skip auth if localhost.
    */
-  private final transient boolean allowLocalhost;
+  private final boolean allowLocalhost;
 
   /**
    * Flag to indicate if non-SSL BASIC Auth allowed.
    */
-  private final transient boolean allowUnsecure;
+  private final boolean allowUnsecure;
 
   /**
    * Flag to indicate if NTLM is accepted.
    */
-  private final transient boolean promptIfNtlm;
+  private final boolean promptIfNtlm;
 
   /**
    * Login Context module name for client auth.
    */
-  private final transient String clientModuleName;
+  private final String clientModuleName;
 
   /**
    * Login Context server uses for pre-authentication.
    */
-  private final transient LoginContext loginContext;
+  private final LoginContext loginContext;
 
   /**
    * Credentials server uses for authenticating requests.
    */
-  private final transient GSSCredential serverCredentials;
+  private final GSSCredential serverCredentials;
 
   /**
    * Server Principal used for pre-authentication.
    */
-  private final transient KerberosPrincipal serverPrincipal;
+  private final KerberosPrincipal serverPrincipal;
 
   /**
    * Create an authenticator for SPNEGO and/or BASIC authentication.
    * @param config servlet filter initialization parameters
-   * @throws LoginException
-   * @throws GSSException
-   * @throws PrivilegedActionException
+   * @throws LoginException if the authentication fails
+   * @throws GSSException if the SSO negotiation fails
+   * @throws PrivilegedActionException if the action isn't allowed
    */
-  public SpnegoAuthenticator(final SpnegoFilterConfig config)
+  SpnegoAuthenticator(final SpnegoFilterConfig config)
       throws LoginException, GSSException, PrivilegedActionException {
 
     logger().debug("config=" + config);
@@ -209,16 +208,15 @@ public final class SpnegoAuthenticator {
    * ...
    * </code>
    * </p>
-   * @param config
-   * @throws LoginException
-   * @throws GSSException
-   * @throws PrivilegedActionException
-   * @throws FileNotFoundException
-   * @throws URISyntaxException
+   * @param config the authentication configuration parameters
+   * @throws LoginException if the authentication fails
+   * @throws GSSException if the SSO negotiation fails
+   * @throws PrivilegedActionException if a disallowed action is performed
+   * @throws FileNotFoundException if no login configuration file is found
    */
+  @SuppressWarnings("unused")
   public SpnegoAuthenticator(final Map<String, String> config)
-      throws LoginException, GSSException, PrivilegedActionException, FileNotFoundException,
-      URISyntaxException {
+      throws LoginException, GSSException, PrivilegedActionException, FileNotFoundException {
 
     this(SpnegoFilterConfig.getInstance(new FilterConfig() {
 
@@ -237,9 +235,8 @@ public final class SpnegoAuthenticator {
         return map.get(param);
       }
 
-      @SuppressWarnings("rawtypes")
       @Override
-      public Enumeration getInitParameterNames() {
+      public Enumeration<String> getInitParameterNames() {
         throw new UnsupportedOperationException();
       }
 
@@ -258,14 +255,14 @@ public final class SpnegoAuthenticator {
    * </p>
    * <p/>
    * <p>
-   * Method will throw UnsupportedOperationException if client authz
+   * Method will throw UnsupportedOperationException if client authorization
    * request is NOT "Negotiate" or "Basic".
    * </p>
    * @param req servlet request
    * @param resp servlet response
    * @return null if auth not complete else SpnegoPrincipal of client
-   * @throws GSSException
-   * @throws IOException
+   * @throws GSSException if the SSO negotiation fails
+   * @throws IOException if the IO communication with the Spnego server fails.
    */
   public SpnegoPrincipal authenticate(final HttpServletRequest req,
       final SpnegoHttpServletResponse resp) throws GSSException, IOException {
@@ -378,7 +375,7 @@ public final class SpnegoAuthenticator {
 
     try {
       // assert
-      if (null == username || username.isEmpty()) {
+      if (username.isEmpty()) {
         throw new LoginException("Username is required.");
       }
 
@@ -443,7 +440,7 @@ public final class SpnegoAuthenticator {
     GSSCredential delegCred = null;
 
     try {
-      byte[] token = null;
+      byte[] token;
 
       SpnegoAuthenticator.LOCK.lock();
       try {

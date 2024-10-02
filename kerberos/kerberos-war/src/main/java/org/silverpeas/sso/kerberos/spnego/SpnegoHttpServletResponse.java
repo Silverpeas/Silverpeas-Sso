@@ -41,11 +41,8 @@ import java.io.IOException;
  */
 public final class SpnegoHttpServletResponse extends HttpServletResponseWrapper {
 
-  private transient boolean statusSet = false;
+  private boolean statusSet = false;
 
-  /**
-   * @param response
-   */
   public SpnegoHttpServletResponse(final HttpServletResponse response) {
     super(response);
   }
@@ -69,7 +66,7 @@ public final class SpnegoHttpServletResponse extends HttpServletResponseWrapper 
    * length to zero and flush the buffer.
    * @param status http status code
    * @param immediate set to true to set content len to zero and flush
-   * @throws IOException
+   * @throws IOException if an IO error occurs
    * @see #setStatus(int)
    */
   public void setStatus(final int status, final boolean immediate) throws IOException {

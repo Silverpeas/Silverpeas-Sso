@@ -100,7 +100,7 @@ public class SpnegoManager {
    * also logout when we are done using this object.
    * <p/>
    * <p>
-   * Generally, instantiators of this class should be the only to call
+   * Generally, instantiations of this class should be the only to call
    * dispose() as it indicates that this class will no longer be used.
    * </p>
    */

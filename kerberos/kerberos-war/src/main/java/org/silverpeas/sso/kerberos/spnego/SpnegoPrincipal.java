@@ -28,6 +28,7 @@ import org.ietf.jgss.GSSCredential;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 import java.security.Principal;
+import java.util.Objects;
 
 /**
  * This class encapsulates a KerberosPrincipal.
@@ -43,18 +44,9 @@ import java.security.Principal;
  */
 public final class SpnegoPrincipal implements Principal {
 
-  private final transient KerberosPrincipal kerberosPrincipal;
+  private final KerberosPrincipal kerberosPrincipal;
 
-  private final transient GSSCredential delegatedCred;
-
-  /**
-   * Constructs a SpnegoPrincipal from the provided String input.
-   * @param name the principal name
-   */
-  public SpnegoPrincipal(final String name) {
-    this.kerberosPrincipal = new KerberosPrincipal(name);
-    this.delegatedCred = null;
-  }
+  private final GSSCredential delegatedCred;
 
   /**
    * Constructs a SpnegoPrincipal from the provided String input
@@ -97,6 +89,7 @@ public final class SpnegoPrincipal implements Principal {
    * Returns the name type of the KerberosPrincipal.
    * @return name type of the KerberosPrincipal
    */
+  @SuppressWarnings("unused")
   public int getNameType() {
     return this.kerberosPrincipal.getNameType();
   }
@@ -105,6 +98,7 @@ public final class SpnegoPrincipal implements Principal {
    * Returns the realm component of this Kerberos principal.
    * @return realm component of this Kerberos principal
    */
+  @SuppressWarnings("unused")
   public String getRealm() {
     return this.kerberosPrincipal.getRealm();
   }
@@ -112,6 +106,14 @@ public final class SpnegoPrincipal implements Principal {
   @Override
   public int hashCode() {
     return this.kerberosPrincipal.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SpnegoPrincipal that = (SpnegoPrincipal) o;
+    return Objects.equals(kerberosPrincipal, that.kerberosPrincipal);
   }
 
   @Override

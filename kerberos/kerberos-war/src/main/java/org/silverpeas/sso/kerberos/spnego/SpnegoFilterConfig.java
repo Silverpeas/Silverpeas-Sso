@@ -31,9 +31,9 @@ import javax.security.auth.login.Configuration;
 import javax.servlet.FilterConfig;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Class that applies/enforces web.xml init params.
@@ -67,7 +67,7 @@ final class SpnegoFilterConfig { // NOPMD
   private static final String MISSING_PROPERTY =
       "Servlet Filter init param(s) in web.xml missing: ";
 
-  private static transient SpnegoFilterConfig instance = null;
+  private static SpnegoFilterConfig instance = null;
 
   /**
    * true if typed runtime exception have to be thrown and handled behind by the server
@@ -86,57 +86,57 @@ final class SpnegoFilterConfig { // NOPMD
    * <location>/unauthenticatedError.jsp</location>
    * </error-page>
    */
-  private transient boolean throwTypedRuntimeException = false;
+  private boolean throwTypedRuntimeException = false;
 
   /**
    * true if Basic auth should be offered.
    */
-  private transient boolean allowBasic = false;
+  private boolean allowBasic = false;
 
   /**
    * true if server should support credential delegation requests.
    */
-  private transient boolean allowDelegation = false;
+  private boolean allowDelegation = false;
 
   /**
    * true if request from localhost should not be authenticated.
    */
-  private transient boolean allowLocalhost = true;
+  private boolean allowLocalhost = true;
 
   /**
    * true if non-ssl for basic auth is allowed.
    */
-  private transient boolean allowUnsecure = true;
+  private boolean allowUnsecure = true;
 
   /**
    * true if all req. login module options set.
    */
-  private transient boolean canUseKeyTab = false;
+  private boolean canUseKeyTab = false;
 
   /**
    * name of the client login module.
    */
-  private transient String clientLoginModule = null;
+  private String clientLoginModule = null;
 
   /**
    * password to domain account.
    */
-  private transient String password = null;
+  private String password = null;
 
   /**
    * true if instead of err on ntlm token, prompt for username/pass.
    */
-  private transient boolean promptNtlm = false;
+  private boolean promptNtlm = false;
 
   /**
    * name of the server login module.
    */
-  private transient String serverLoginModule = null;
+  private String serverLoginModule = null;
 
   /**
    * domain account to use for pre-authentication.
    */
-  private transient String username = null;
+  private String username = null;
 
   @SuppressWarnings("UnusedDeclaration")
   private SpnegoFilterConfig() {
@@ -227,7 +227,7 @@ final class SpnegoFilterConfig { // NOPMD
         if (!option.getKey().startsWith("jboss")) {
           throw new UnsupportedOperationException(
               "Login Module for client must not " + "specify any options: " + opt.size() +
-                  "; moduleName=" + moduleName + "; options=" + opt.toString());
+                  "; moduleName=" + moduleName + "; options=" + opt);
         }
       }
     }
@@ -247,7 +247,7 @@ final class SpnegoFilterConfig { // NOPMD
    *      principal="my_preauth_account";
    * };
    * </pre>
-   * @param moduleName
+   * @param moduleName the name of the module
    */
   private void doServerModule(final String moduleName) {
 
@@ -332,13 +332,12 @@ final class SpnegoFilterConfig { // NOPMD
 
   /**
    * Returns the instance of the servlet's config parameters.
-   * @param config FilterConfi from servlet's init method
+   * @param config the filter configuration from servlet's init method
    * @return the instance of that represent the init params
    * @throws FileNotFoundException if login conf file not found
-   * @throws URISyntaxException if path to login conf is bad
    */
   static SpnegoFilterConfig getInstance(final FilterConfig config)
-      throws FileNotFoundException, URISyntaxException {
+      throws FileNotFoundException {
 
     synchronized (SpnegoFilterConfig.class) {
       if (null == SpnegoFilterConfig.instance) {
@@ -409,23 +408,7 @@ final class SpnegoFilterConfig { // NOPMD
   private boolean moduleExists(final String side, final String moduleName) {
 
     // confirm that runtime loaded the login file
-    final Configuration config = Configuration.getConfiguration();
-
-    // we only expect one entry
-    final AppConfigurationEntry[] entry = config.getAppConfigurationEntry(moduleName);
-
-    // confirm that the module name exists in the file
-    if (null == entry) {
-      throw new IllegalArgumentException(
-          "The " + side + " module name " + "was not found in the login file: " + moduleName);
-    }
-
-    // confirm that the login module class was defined
-    if (0 == entry.length) {
-      throw new IllegalArgumentException(
-          "The " + side + " module name " + "exists but login module class not defined: " +
-              moduleName);
-    }
+    final AppConfigurationEntry[] entry = getAppConfigurationEntries(side, moduleName);
 
     // confirm that only one login module class specified
     if (entry.length > 1) {
@@ -447,6 +430,27 @@ final class SpnegoFilterConfig { // NOPMD
     }
 
     return true;
+  }
+
+  private static AppConfigurationEntry[] getAppConfigurationEntries(String side, String moduleName) {
+    final Configuration config = Configuration.getConfiguration();
+
+    // we only expect one entry
+    final AppConfigurationEntry[] entry = config.getAppConfigurationEntry(moduleName);
+
+    // confirm that the module name exists in the file
+    if (null == entry) {
+      throw new IllegalArgumentException(
+          "The " + side + " module name " + "was not found in the login file: " + moduleName);
+    }
+
+    // confirm that the login module class was defined
+    if (0 == entry.length) {
+      throw new IllegalArgumentException(
+          "The " + side + " module name " + "exists but login module class not defined: " +
+              moduleName);
+    }
+    return entry;
   }
 
   /**
@@ -501,17 +505,8 @@ final class SpnegoFilterConfig { // NOPMD
   private void setUsernamePassword(final String usr, final String psswrd) {
     boolean mustUseKtab = false;
 
-    if (null == usr) {
-      this.username = "";
-    } else {
-      this.username = usr;
-    }
-
-    if (null == psswrd) {
-      this.password = "";
-    } else {
-      this.password = psswrd;
-    }
+    this.username = Objects.requireNonNullElse(usr, "");
+    this.password = Objects.requireNonNullElse(psswrd, "");
 
     if (this.username.isEmpty() || this.password.isEmpty()) {
       mustUseKtab = true;
@@ -533,12 +528,8 @@ final class SpnegoFilterConfig { // NOPMD
 
   @Override
   public String toString() {
-    final StringBuilder buff = new StringBuilder();
-
-    buff.append("allowBasic=" + this.allowBasic + "; allowUnsecure=" + this.allowUnsecure +
+    return "allowBasic=" + this.allowBasic + "; allowUnsecure=" + this.allowUnsecure +
         "; canUseKeyTab=" + this.canUseKeyTab + "; clientLoginModule=" + this.clientLoginModule +
-        "; serverLoginModule=" + this.serverLoginModule);
-
-    return buff.toString();
+        "; serverLoginModule=" + this.serverLoginModule;
   }
 }

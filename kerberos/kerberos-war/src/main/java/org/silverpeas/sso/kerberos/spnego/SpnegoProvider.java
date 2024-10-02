@@ -24,16 +24,10 @@
 
 package org.silverpeas.sso.kerberos.spnego;
 
-import org.ietf.jgss.GSSContext;
-import org.ietf.jgss.GSSCredential;
-import org.ietf.jgss.GSSException;
-import org.ietf.jgss.GSSManager;
-import org.ietf.jgss.GSSName;
-import org.ietf.jgss.Oid;
+import org.ietf.jgss.*;
 import org.silverpeas.sso.kerberos.spnego.KerberosSpnegoFilter.Constants;
 
 import javax.security.auth.Subject;
-import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
@@ -43,7 +37,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import java.util.logging.Level;
 
 import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
 
@@ -104,7 +97,7 @@ public final class SpnegoProvider {
    * @param promptIfNtlm pass true ntlm request should be downgraded
    * @param realm should be the realm the server used to pre-authenticate
    * @return null if negotiation needs to continue or failed
-   * @throws IOException
+   * @throws IOException if an IO error occurs
    */
   static SpnegoAuthScheme negotiate(final HttpServletRequest req,
       final SpnegoHttpServletResponse resp, final boolean basicSupported,
@@ -159,19 +152,14 @@ public final class SpnegoProvider {
    * Returns the GSS-API interface for creating a security context.
    * @param subject the person to be authenticated
    * @return GSSCredential to be used for creating a security context.
-   * @throws PrivilegedActionException
+   * @throws PrivilegedActionException if a disallowed action is performed
    */
   public static GSSCredential getClientCredential(final Subject subject)
       throws PrivilegedActionException {
 
     final PrivilegedExceptionAction<GSSCredential> action =
-        new PrivilegedExceptionAction<GSSCredential>() {
-          public GSSCredential run() throws GSSException {
-            return MANAGER
-                .createCredential(null, GSSCredential.DEFAULT_LIFETIME, SpnegoProvider.SPNEGO_OID,
-                    GSSCredential.INITIATE_ONLY);
-          }
-        };
+        () -> MANAGER.createCredential(null, GSSCredential.DEFAULT_LIFETIME,
+            SpnegoProvider.SPNEGO_OID, GSSCredential.INITIATE_ONLY);
 
     return Subject.doAs(subject, action);
   }
@@ -183,8 +171,7 @@ public final class SpnegoProvider {
    * @param creds credentials of the person to be authenticated
    * @param url HTTP address of server (used for constructing a {@link GSSName}).
    * @return GSSContext
-   * @throws GSSException
-   * @throws PrivilegedActionException
+   * @throws GSSException if the SSO negotiation fails
    */
   public static GSSContext getGSSContext(final GSSCredential creds, final URL url)
       throws GSSException {
@@ -204,7 +191,7 @@ public final class SpnegoProvider {
    * @param header ex. Negotiate or Basic
    * @return null if header missing/null else the auth scheme
    */
-  public static SpnegoAuthScheme getAuthScheme(final String header) {
+  static SpnegoAuthScheme getAuthScheme(final String header) {
 
     if (null == header || header.isEmpty()) {
       logger().debug("authorization header was missing/null");
@@ -242,17 +229,13 @@ public final class SpnegoProvider {
    * Returns the {@link GSSCredential} the server uses for pre-authentication.
    * @param subject account server uses for pre-authentication
    * @return credential that allows server to authenticate clients
-   * @throws PrivilegedActionException
+   * @throws PrivilegedActionException if the action isn't allowed
    */
   static GSSCredential getServerCredential(final Subject subject) throws PrivilegedActionException {
 
     final PrivilegedExceptionAction<GSSCredential> action =
-        new PrivilegedExceptionAction<GSSCredential>() {
-          public GSSCredential run() throws GSSException {
-            return MANAGER.createCredential(null, GSSCredential.INDEFINITE_LIFETIME,
-                SpnegoProvider.SPNEGO_OID, GSSCredential.ACCEPT_ONLY);
-          }
-        };
+        () -> MANAGER.createCredential(null, GSSCredential.INDEFINITE_LIFETIME,
+            SpnegoProvider.SPNEGO_OID, GSSCredential.ACCEPT_ONLY);
     return Subject.doAs(subject, action);
   }
 
@@ -261,7 +244,7 @@ public final class SpnegoProvider {
    * URL object.
    * @param url HTTP address of server
    * @return GSSName of URL.
-   * @throws GSSException
+   * @throws GSSException if the SSO negotiation fails.
    */
   static GSSName getServerName(final URL url) throws GSSException {
     return MANAGER.createName("HTTP@" + url.getHost(), GSSName.NT_HOSTBASED_SERVICE,

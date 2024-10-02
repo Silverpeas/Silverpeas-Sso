@@ -48,12 +48,12 @@ final class SpnegoHttpServletRequest extends HttpServletRequestWrapper
   /**
    * Client Principal.
    */
-  private final transient SpnegoPrincipal principal;
+  private final SpnegoPrincipal principal;
 
   /**
    * Creates Servlet Request specifying KerberosPrincipal of user.
-   * @param request
-   * @param spnegoPrincipal
+   * @param request the incoming HTTP request
+   * @param spnegoPrincipal the principal of the user in Spnego
    */
   SpnegoHttpServletRequest(final HttpServletRequest request,
       final SpnegoPrincipal spnegoPrincipal) {

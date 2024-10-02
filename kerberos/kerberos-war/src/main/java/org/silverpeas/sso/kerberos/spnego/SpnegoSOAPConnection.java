@@ -28,15 +28,9 @@ import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
 
 import javax.security.auth.login.LoginException;
-import javax.xml.soap.MessageFactory;
-import javax.xml.soap.MimeHeaders;
-import javax.xml.soap.SOAPConnection;
-import javax.xml.soap.SOAPConstants;
-import javax.xml.soap.SOAPException;
-import javax.xml.soap.SOAPMessage;
+import javax.xml.soap.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.PrivilegedActionException;
 
@@ -107,14 +101,15 @@ import java.security.PrivilegedActionException;
  */
 public class SpnegoSOAPConnection extends SOAPConnection {
 
-  private final transient SpnegoHttpURLConnection conn;
+  private static final String CONTENT_TYPE = "Content-Type";
+  private final SpnegoHttpURLConnection conn;
 
   /**
    * Creates an instance where the LoginContext relies on a keytab
    * file being specified by "java.security.auth.login.config" or
    * where LoginContext relies on tgtsessionkey.
-   * @param loginModuleName
-   * @throws LoginException
+   * @param loginModuleName the name of the login module
+   * @throws LoginException if the login fails
    */
   @SuppressWarnings("UnusedDeclaration")
   public SpnegoSOAPConnection(final String loginModuleName) throws LoginException {
@@ -148,10 +143,10 @@ public class SpnegoSOAPConnection extends SOAPConnection {
    * Creates an instance where the LoginContext does not require a keytab
    * file. However, the "java.security.auth.login.config" property must still
    * be set prior to instantiating this object.
-   * @param loginModuleName
-   * @param username
-   * @param password
-   * @throws LoginException
+   * @param loginModuleName the name of the login module
+   * @param username the login id of the user
+   * @param password the login password of the user
+   * @throws LoginException if the login fails
    */
   @SuppressWarnings("UnusedDeclaration")
   public SpnegoSOAPConnection(final String loginModuleName, final String username,
@@ -164,13 +159,9 @@ public class SpnegoSOAPConnection extends SOAPConnection {
   @Override
   public final SOAPMessage call(final SOAPMessage request, final Object endpoint)
       throws SOAPException {
-
-    SOAPMessage message = null;
-    final ByteArrayOutputStream bos = new ByteArrayOutputStream();
-
-    try {
+    try(ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
       final MimeHeaders headers = request.getMimeHeaders();
-      final String[] contentType = headers.getHeader("Content-Type");
+      final String[] contentType = headers.getHeader(CONTENT_TYPE);
       final String[] soapAction = headers.getHeader("SOAPAction");
 
       // build the Content-Type HTTP header parameter if not defined
@@ -184,14 +175,14 @@ public class SpnegoSOAPConnection extends SOAPConnection {
         }
 
         // not defined as a MIME header but we need it as an HTTP header parameter
-        this.conn.addRequestProperty("Content-Type", header.toString());
+        this.conn.addRequestProperty(CONTENT_TYPE, header.toString());
       } else {
         if (contentType.length > 1) {
           throw new IllegalArgumentException("Content-Type defined more than once.");
         }
 
         // user specified as a MIME header so add it as an HTTP header parameter
-        this.conn.addRequestProperty("Content-Type", contentType[0]);
+        this.conn.addRequestProperty(CONTENT_TYPE, contentType[0]);
       }
 
       // specify SOAPAction as an HTTP header parameter
@@ -204,33 +195,26 @@ public class SpnegoSOAPConnection extends SOAPConnection {
 
       request.writeTo(bos);
 
-      this.conn.connect(new URL(endpoint.toString()), bos);
+      return getSoapMessage(endpoint, bos);
 
-      final MessageFactory factory = MessageFactory.newInstance(SOAPConstants.SOAP_1_2_PROTOCOL);
-
-      try {
-        message = factory.createMessage(null, this.conn.getInputStream());
-      } catch (IOException e) {
-        message = factory.createMessage(null, this.conn.getErrorStream());
-      }
-
-    } catch (MalformedURLException e) {
-      throw new SOAPException(e);
-    } catch (IOException e) {
-      throw new SOAPException(e);
-    } catch (GSSException e) {
-      throw new SOAPException(e);
-    } catch (PrivilegedActionException e) {
+    } catch (IOException | PrivilegedActionException | GSSException e) {
       throw new SOAPException(e);
     } finally {
-      try {
-        bos.close();
-      } catch (IOException ioe) {
-        assert true;
-      }
       this.close();
     }
+  }
 
+  private SOAPMessage getSoapMessage(Object endpoint, ByteArrayOutputStream bos) throws GSSException, PrivilegedActionException, IOException, SOAPException {
+    SOAPMessage message;
+    this.conn.connect(new URL(endpoint.toString()), bos);
+
+    final MessageFactory factory = MessageFactory.newInstance(SOAPConstants.SOAP_1_2_PROTOCOL);
+
+    try {
+      message = factory.createMessage(null, this.conn.getInputStream());
+    } catch (IOException e) {
+      message = factory.createMessage(null, this.conn.getErrorStream());
+    }
     return message;
   }
 
