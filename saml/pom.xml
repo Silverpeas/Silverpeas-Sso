@@ -28,7 +28,7 @@
   <parent>
     <groupId>org.silverpeas</groupId>
     <artifactId>sso</artifactId>
-    <version>1.0</version>
+    <version>1.0.1-SNAPSHOT</version>
   </parent>
   
   <groupId>org.silverpeas.sso</groupId>
