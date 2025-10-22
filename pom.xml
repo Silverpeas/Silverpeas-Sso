@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.silverpeas</groupId>
     <artifactId>silverpeas-project</artifactId>
-    <version>1.6.2</version>
+    <version>1.7-build250715</version>
   </parent>
   
   <artifactId>sso</artifactId>
@@ -46,7 +46,7 @@
     <!-- property used by the CI to both deploy a build version and release the next stable version -->
     <next.release>1.2</next.release>
     <!-- Version of Silverpeas on which it depends -->
-    <silverpeas.version>6.4.2</silverpeas.version>
+    <silverpeas.version>6.5-build251020</silverpeas.version>
   </properties>
 
   <dependencies>
