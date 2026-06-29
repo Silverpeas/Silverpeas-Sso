@@ -26,7 +26,7 @@ package org.silverpeas.sso.kerberos.spnego;
 
 import org.ietf.jgss.GSSCredential;
 
-import javax.servlet.ServletRequest;
+import jakarta.servlet.ServletRequest;
 
 /**
  * The default installation of Internet Explorer and Active Directory

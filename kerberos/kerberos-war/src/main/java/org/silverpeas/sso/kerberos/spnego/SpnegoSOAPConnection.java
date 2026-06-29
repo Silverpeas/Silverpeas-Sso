@@ -28,7 +28,7 @@ import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
 
 import javax.security.auth.login.LoginException;
-import javax.xml.soap.*;
+import jakarta.xml.soap.*;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;

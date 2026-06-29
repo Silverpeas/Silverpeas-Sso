@@ -28,7 +28,7 @@ import org.silverpeas.core.admin.domain.DomainTypeRegistry;
 import org.silverpeas.core.initialization.Initialization;
 import org.silverpeas.sso.saml.settings.SamlSettings;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 /**
  * @author silveryocha

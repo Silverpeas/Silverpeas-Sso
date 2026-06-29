@@ -28,7 +28,7 @@ import org.silverpeas.core.admin.domain.DomainType;
 import org.silverpeas.core.admin.domain.DomainTypeRegistry;
 import org.silverpeas.core.initialization.Initialization;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 /**
  * @author silveryocha

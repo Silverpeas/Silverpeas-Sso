@@ -28,7 +28,7 @@ import org.ietf.jgss.GSSException;
 import org.silverpeas.core.annotation.Service;
 import org.silverpeas.core.util.ServiceProvider;
 
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 import javax.security.auth.login.LoginException;
 import java.security.PrivilegedActionException;
 
@@ -41,7 +41,6 @@ import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
  * @author silveryocha
  */
 @Service
-@Singleton
 public class SpnegoManager {
 
   /**
@@ -49,10 +48,6 @@ public class SpnegoManager {
    */
   private SpnegoFilterConfig config = null;
   private SpnegoAuthenticator authenticator = null;
-
-  public static SpnegoManager get() {
-    return ServiceProvider.getService(SpnegoManager.class);
-  }
 
   /**
    * Initializing the manager with spnego configuration.

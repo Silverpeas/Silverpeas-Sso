@@ -28,7 +28,7 @@ import org.silverpeas.sso.kerberos.spnego.KerberosSpnegoFilter.Constants;
 
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
-import javax.servlet.FilterConfig;
+import jakarta.servlet.FilterConfig;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.file.Paths;

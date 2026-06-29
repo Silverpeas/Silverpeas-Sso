@@ -4,11 +4,11 @@
   <parent>
     <groupId>org.silverpeas</groupId>
     <artifactId>silverpeas-project</artifactId>
-    <version>1.7-build250715</version>
+    <version>2.0-build260610</version>
   </parent>
   
   <artifactId>sso</artifactId>
-  <version>1.2-SNAPSHOT</version>
+  <version>2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Silverpeas SSO authentication</name>
   
@@ -46,24 +46,13 @@
     <!-- property used by the CI to both deploy a build version and release the next stable version -->
     <next.release>1.2</next.release>
     <!-- Version of Silverpeas on which it depends -->
-    <silverpeas.version>6.5-build251020</silverpeas.version>
+    <silverpeas.version>6.5-build260622</silverpeas.version>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>javax</groupId>
-      <artifactId>javaee-api</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>javax.servlet.jsp.jstl</groupId>
-      <artifactId>javax.servlet.jsp.jstl-api</artifactId>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.web</groupId>
-      <artifactId>javax.servlet.jsp.jstl</artifactId>
-      <scope>provided</scope>
+      <groupId>jakarta.platform</groupId>
+      <artifactId>jakarta.jakartaee-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>

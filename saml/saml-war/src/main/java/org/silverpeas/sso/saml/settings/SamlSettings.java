@@ -54,7 +54,7 @@ import org.silverpeas.kernel.bundle.SettingBundle;
 import org.silverpeas.kernel.util.Pair;
 import org.silverpeas.kernel.util.StringUtil;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;

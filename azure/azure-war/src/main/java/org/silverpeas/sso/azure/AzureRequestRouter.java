@@ -28,8 +28,8 @@ import com.microsoft.aad.adal4j.AuthenticationResult;
 import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
 import org.silverpeas.core.web.sso.SilverpeasSsoPrincipal;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import static java.text.MessageFormat.format;
 import static org.silverpeas.sso.azure.AzureLogger.getLogSessionId;
