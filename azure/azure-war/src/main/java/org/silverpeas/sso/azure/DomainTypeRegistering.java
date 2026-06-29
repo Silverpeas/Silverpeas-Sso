@@ -26,6 +26,7 @@ package org.silverpeas.sso.azure;
 
 import org.silverpeas.core.admin.domain.DomainType;
 import org.silverpeas.core.admin.domain.DomainTypeRegistry;
+import org.silverpeas.core.annotation.Bean;
 import org.silverpeas.core.initialization.Initialization;
 
 import jakarta.inject.Inject;
@@ -33,6 +34,7 @@ import jakarta.inject.Inject;
 /**
  * @author silveryocha
  */
+@Bean
 public class DomainTypeRegistering implements Initialization {
 
   @Inject

@@ -28,6 +28,7 @@ import org.silverpeas.kernel.bundle.ResourceLocator;
 import org.silverpeas.kernel.bundle.SettingBundle;
 
 import jakarta.ws.rs.core.UriBuilder;
+import java.util.Set;
 
 /**
  * @author silveryocha
@@ -88,5 +89,15 @@ public class AzureSettings {
    */
   public static String getSilverpeasDomainId() {
     return getSettings().getString("azure.silverpeas.domain.id");
+  }
+
+  /**
+   * Gets the OAuth2/OIDC scopes to request to Microsoft Entra ID (Azure AD).
+   * @return a set of scopes.
+   */
+  public static Set<String> getScopes() {
+    final String scopes =
+        getSettings().getString("azure.silverpeas.client.scopes", "openid profile offline_access");
+    return Set.of(scopes.trim().split("\\s+"));
   }
 }

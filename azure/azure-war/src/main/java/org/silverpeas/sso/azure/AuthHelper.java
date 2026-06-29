@@ -24,7 +24,7 @@
 
 package org.silverpeas.sso.azure;
 
-import com.microsoft.aad.adal4j.AuthenticationResult;
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationSuccessResponse;
 
@@ -38,6 +38,7 @@ import java.util.Map;
 public final class AuthHelper {
 
   static final String PRINCIPAL_ATTRIBUTE_NAME = "silverpeas:sso:principal";
+  static final String TOKEN_CACHE_ATTRIBUTE_NAME = "silverpeas:sso:tokenCache";
 
   private AuthHelper() {
   }
@@ -54,11 +55,16 @@ public final class AuthHelper {
     }
   }
 
-  static AuthenticationResult getAuthSessionObject(HttpServletRequest request) {
+  static IAuthenticationResult getAuthSessionObject(HttpServletRequest request) {
     final HttpSession session = request.getSession(false);
     return session != null
-        ? (AuthenticationResult) session.getAttribute(PRINCIPAL_ATTRIBUTE_NAME)
+        ? (IAuthenticationResult) session.getAttribute(PRINCIPAL_ATTRIBUTE_NAME)
         : null;
+  }
+
+  static String getTokenCache(HttpServletRequest request) {
+    final HttpSession session = request.getSession(false);
+    return session != null ? (String) session.getAttribute(TOKEN_CACHE_ATTRIBUTE_NAME) : null;
   }
 
   static boolean containsAuthenticationData(HttpServletRequest httpRequest) {

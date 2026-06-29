@@ -24,6 +24,7 @@
 
 package org.silverpeas.sso.kerberos.spnego;
 
+import jakarta.inject.Inject;
 import org.ietf.jgss.GSSException;
 
 import jakarta.servlet.*;
@@ -172,6 +173,9 @@ import static org.silverpeas.sso.kerberos.KerberosLogger.logger;
  */
 public final class KerberosSpnegoFilter implements Filter {
 
+  @Inject
+  private SpnegoManager spnegoManager;
+
   @Override
   public void init(final FilterConfig filterConfig) throws ServletException {
     try {
@@ -179,7 +183,7 @@ public final class KerberosSpnegoFilter implements Filter {
       final SpnegoFilterConfig config = SpnegoFilterConfig.getInstance(filterConfig);
 
       // pre-authenticate
-      SpnegoManager.get().init(config);
+      spnegoManager.init(config);
     } catch (final FileNotFoundException e) {
       logger().error(e);
       throw new ServletException(e);
@@ -188,7 +192,7 @@ public final class KerberosSpnegoFilter implements Filter {
 
   @Override
   public void destroy() {
-    SpnegoManager.get().logoutAuthenticator();
+    spnegoManager.logoutAuthenticator();
   }
 
   @Override
@@ -206,7 +210,6 @@ public final class KerberosSpnegoFilter implements Filter {
         (HttpServletResponse) response);
 
     // client/caller principal
-    final SpnegoManager spnegoManager = SpnegoManager.get();
     final SpnegoPrincipal principal;
     try {
       principal = spnegoManager.getAuthenticator().authenticate(httpRequest, spnegoResponse);

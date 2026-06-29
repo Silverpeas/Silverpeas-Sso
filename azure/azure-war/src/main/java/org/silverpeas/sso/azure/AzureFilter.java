@@ -24,10 +24,7 @@
 
 package org.silverpeas.sso.azure;
 
-import com.microsoft.aad.adal4j.AuthenticationContext;
-import com.microsoft.aad.adal4j.AuthenticationException;
-import com.microsoft.aad.adal4j.AuthenticationResult;
-import com.microsoft.aad.adal4j.ClientCredential;
+import com.microsoft.aad.msal4j.*;
 import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.ParseException;
@@ -35,32 +32,21 @@ import com.nimbusds.openid.connect.sdk.AuthenticationErrorResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
 import com.nimbusds.openid.connect.sdk.AuthenticationResponseParser;
 import com.nimbusds.openid.connect.sdk.AuthenticationSuccessResponse;
-import org.silverpeas.kernel.util.StringUtil;
-
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
+import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.core.UriBuilder;
+import org.silverpeas.kernel.util.StringUtil;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.net.URISyntaxException;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.text.MessageFormat.format;
@@ -103,9 +89,9 @@ public class AzureFilter implements Filter {
           }
         }
         if (isAuthDataExpired(httpRequest)) {
-          updateAuthDataUsingRefreshToken(httpRequest);
+          updateAuthDataSilently(httpRequest);
         }
-      } catch (AuthenticationException authException) {
+      } catch (MsalException msalException) {
         // something went wrong (like expiration or revocation of token)
         // we should invalidate AuthData stored in session and redirect to Authorization server
         invalidateAuth(httpRequest);
@@ -122,26 +108,56 @@ public class AzureFilter implements Filter {
   }
 
   private boolean isAuthDataExpired(HttpServletRequest httpRequest) {
-    final AuthenticationResult authData = getAuthSessionObject(httpRequest);
-    return authData != null && authData.getExpiresOnDate().before(new Date());
+    final IAuthenticationResult authData = getAuthSessionObject(httpRequest);
+    return authData != null && authData.expiresOnDate().before(new Date());
   }
 
-  private void updateAuthDataUsingRefreshToken(HttpServletRequest httpRequest) throws ServletException {
-    final String refreshToken = getAuthSessionObject(httpRequest).getRefreshToken();
-    final AuthenticationResult authData = getAccessTokenFromRefreshToken(refreshToken);
+  /**
+   * Silently renews the access token from MSAL's token cache (which holds the refresh token).
+   * On any MSAL failure (e.g. interaction required) the {@link MsalException} is propagated so that
+   * the filter can fall back to an interactive redirect to the authority server.
+   */
+  private void updateAuthDataSilently(HttpServletRequest httpRequest)
+      throws ServletException, MsalException {
+    final SessionTokenCacheAspect cacheAspect =
+        new SessionTokenCacheAspect(getTokenCache(httpRequest));
+    final ConfidentialClientApplication app = buildClient(cacheAspect);
+    final Set<IAccount> accounts = app.getAccounts().join();
+    if (accounts.isEmpty()) {
+      throw new MsalClientException("No account in MSAL token cache for silent token renewal",
+          "no_account_in_cache");
+    }
+    final SilentParameters params =
+        SilentParameters.builder(getScopes(), accounts.iterator().next()).build();
+    final IAuthenticationResult authData;
+    try {
+      authData = app.acquireTokenSilently(params).get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ServletException(e);
+    } catch (ExecutionException e) {
+      if (e.getCause() instanceof MsalException) {
+        throw (MsalException) e.getCause();
+      }
+      throw new ServletException(e.getCause() != null ? e.getCause() : e);
+    } catch (MalformedURLException e) {
+      throw new ServletException(e);
+    }
     setSessionPrincipal(httpRequest, authData);
+    setSessionTokenCache(httpRequest, cacheAspect.getSerializedCache());
     logger().debug(() -> format(
         "Access token refreshed for principal {1} on session {0}.",
-        getLogSessionId(httpRequest), authData.getUserInfo().getDisplayableId()));
+        getLogSessionId(httpRequest), authData.account().username()));
   }
 
   private void processAuthenticationData(HttpServletRequest httpRequest)
       throws ServletException {
-    final Map<String, String> params = httpRequest.getParameterMap().entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()[0]));
+    final Map<String, List<String>> params = httpRequest.getParameterMap().entrySet().stream()
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, e -> Arrays.asList(e.getValue())));
 
     // validate that state in response equals to state in request
-    final StateData stateData = validateState(httpRequest.getSession(false), params.get(STATE));
+    final StateData stateData = validateState(httpRequest.getSession(false), params.get(STATE).get(0));
 
     final String currentUri = httpRequest.getRequestURL().toString();
     final AuthenticationResponse authResponse;
@@ -157,17 +173,18 @@ public class AzureFilter implements Filter {
       validateAuthRespMatchesCodeFlow(oidcResponse);
 
       // Getting access token
-      final AuthenticationResult authData = getAccessToken(oidcResponse.getAuthorizationCode(), currentUri);
+      final IAuthenticationResult authData =
+          getAccessToken(oidcResponse.getAuthorizationCode(), currentUri, httpRequest);
 
       // validate nonce to prevent reply attacks (code maybe substituted to one with broader access)
-      validateNonce(stateData, getClaimValueFromIdToken(authData.getIdToken(), "nonce"));
+      validateNonce(stateData, getClaimValueFromIdToken(authData.idToken(), "nonce"));
 
       // successful authentication
       setSessionPrincipal(httpRequest, authData);
 
       logger().debug(
           () -> format("Successful access token get. Principal {1} identified for session {0}.",
-              getLogSessionId(httpRequest), authData.getUserInfo().getDisplayableId()));
+              getLogSessionId(httpRequest), authData.account().username()));
     } else {
       AuthenticationErrorResponse oidcResponse = (AuthenticationErrorResponse) authResponse;
       logger().debug(() -> format(
@@ -241,11 +258,16 @@ public class AzureFilter implements Filter {
     }
   }
 
-  private void setSessionPrincipal(HttpServletRequest httpRequest, AuthenticationResult result) {
+  private void setSessionPrincipal(HttpServletRequest httpRequest, IAuthenticationResult result) {
     httpRequest.getSession().setAttribute(PRINCIPAL_ATTRIBUTE_NAME, result);
   }
 
-  private void sendAuthRedirect(HttpServletRequest httpRequest, HttpServletResponse httpResponse) throws IOException {
+  private void setSessionTokenCache(HttpServletRequest httpRequest, String serializedCache) {
+    httpRequest.getSession().setAttribute(TOKEN_CACHE_ATTRIBUTE_NAME, serializedCache);
+  }
+
+  private void sendAuthRedirect(HttpServletRequest httpRequest, HttpServletResponse httpResponse)
+      throws IOException, ServletException {
     httpResponse.setStatus(302);
 
     // use state parameter to validate response from Authorization server
@@ -290,69 +312,68 @@ public class AzureFilter implements Filter {
     // nothing to do
   }
 
-  private AuthenticationResult getAccessTokenFromRefreshToken(String refreshToken)
-      throws ServletException {
-    return performAccessTokenRequest(
-        c -> c.acquireTokenByRefreshToken(refreshToken, getClientCredential(), null, null));
-  }
-
-  private AuthenticationResult getAccessToken(AuthorizationCode authorizationCode,
-      String currentUri) throws ServletException {
-    final String authCode = authorizationCode.getValue();
-    final ClientCredential credential = getClientCredential();
-    return performAccessTokenRequest(
-        c -> c.acquireTokenByAuthorizationCode(authCode, UriBuilder.fromUri(currentUri).build(),
-            credential, null));
-  }
-
-  private AuthenticationResult performAccessTokenRequest(
-      Function<AuthenticationContext, Future<AuthenticationResult>> process)
-      throws ServletException {
-    AuthenticationResult result;
-    ExecutorService service = null;
+  private IAuthenticationResult getAccessToken(AuthorizationCode authorizationCode,
+      String currentUri, HttpServletRequest httpRequest) throws ServletException {
+    final SessionTokenCacheAspect cacheAspect =
+        new SessionTokenCacheAspect(getTokenCache(httpRequest));
+    final ConfidentialClientApplication app = buildClient(cacheAspect);
+    final IAuthenticationResult result;
     try {
-      service = Executors.newFixedThreadPool(1);
-      AuthenticationContext context = new AuthenticationContext(getTenantAuthorityPath(), true, service);
-      result = process.apply(context).get();
-    } catch (ExecutionException | MalformedURLException | InterruptedException e) {
-      throw new ServletException(e.getCause());
-    } finally {
-      if (service != null) {
-        service.shutdown();
-      }
+      final AuthorizationCodeParameters parameters = AuthorizationCodeParameters
+          .builder(authorizationCode.getValue(), new URI(currentUri))
+          .scopes(getScopes())
+          .build();
+      result = app.acquireToken(parameters).get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ServletException(e);
+    } catch (ExecutionException e) {
+      throw new ServletException(e.getCause() != null ? e.getCause() : e);
+    } catch (URISyntaxException e) {
+      throw new ServletException(e);
     }
-
     if (result == null) {
       throw new ServletException(AUTHENTICATION_RESULT_WAS_NULL_MSG);
     }
+    setSessionTokenCache(httpRequest, cacheAspect.getSerializedCache());
     return result;
   }
 
-  private ClientCredential getClientCredential() {
-    return new ClientCredential(getClientId(), getClientSecretKey());
+  private ConfidentialClientApplication buildClient(SessionTokenCacheAspect cacheAspect)
+      throws ServletException {
+    try {
+      final IClientCredential credential =
+          ClientCredentialFactory.createFromSecret(getClientSecretKey());
+      final ConfidentialClientApplication.Builder builder =
+          ConfidentialClientApplication.builder(getClientId(), credential)
+              .authority(getTenantAuthorityPath());
+      if (cacheAspect != null) {
+        builder.setTokenCacheAccessAspect(cacheAspect);
+      }
+      return builder.build();
+    } catch (MalformedURLException e) {
+      throw new ServletException(e);
+    }
   }
 
-  private static String getRedirectUrl(String currentUri, String claims, String state, String nonce) {
-    final UriBuilder builder = UriBuilder
-        .fromPath(getTenantAuthorityPath()).path("oauth2/authorize")
-        .queryParam("response_type", "code")
-        .queryParam("response_mode", "form_post")
-        .queryParam("redirect_uri", currentUri)
-        .queryParam("client_id", getClientId())
-        .queryParam("resource", "https://graph.windows.net")
-        .queryParam(STATE, state)
-        .queryParam("nonce",nonce);
+  private String getRedirectUrl(String currentUri, String claims, String state, String nonce)
+      throws ServletException {
+    final ConfidentialClientApplication app = buildClient(null);
+    final AuthorizationRequestUrlParameters.Builder builder = AuthorizationRequestUrlParameters
+        .builder(currentUri, getScopes())
+        .state(state)
+        .nonce(nonce);
     if (StringUtil.isDefined(claims)) {
-      builder.queryParam("claims", claims);
+      builder.claimsChallenge(claims);
     }
-    return builder.build().toString();
+    return app.getAuthorizationRequestUrl(builder.build()).toString();
   }
 
   private static class StateData implements Serializable {
     private static final long serialVersionUID = 123456333519529362L;
 
-    private String nonce;
-    private Date expirationDate;
+    private final String nonce;
+    private final Date expirationDate;
 
     StateData(String nonce, Date expirationDate) {
       this.nonce = nonce;

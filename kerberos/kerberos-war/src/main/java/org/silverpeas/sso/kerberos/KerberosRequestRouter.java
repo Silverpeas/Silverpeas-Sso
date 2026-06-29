@@ -24,6 +24,7 @@
 
 package org.silverpeas.sso.kerberos;
 
+import jakarta.inject.Inject;
 import org.silverpeas.core.SilverpeasExceptionMessages.LightExceptionMessage;
 import org.silverpeas.core.admin.user.model.User;
 import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
@@ -50,6 +51,9 @@ import static org.silverpeas.sso.kerberos.settings.KerberosSettings.getSilverpea
 public class KerberosRequestRouter extends SilverpeasSsoHttpServlet {
   private static final long serialVersionUID = 2833617793563756703L;
 
+  @Inject
+  private SpnegoManager spnegoManager;
+
   @Override
   public void doPost(final HttpServletRequest request, final HttpServletResponse response) {
     try {
@@ -64,7 +68,7 @@ public class KerberosRequestRouter extends SilverpeasSsoHttpServlet {
         final String urlToDispatch;
         if (request.getRequestURI().matches("^.+/reload$")) {
           if (ofNullable(User.getCurrentRequester()).filter(User::isAccessAdmin).isPresent()) {
-            SpnegoManager.get().reload();
+            spnegoManager.reload();
           }
           urlToDispatch = "/Login";
         } else {

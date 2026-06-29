@@ -24,7 +24,7 @@
 
 package org.silverpeas.sso.azure;
 
-import com.microsoft.aad.adal4j.AuthenticationResult;
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 import org.silverpeas.core.web.sso.SilverpeasSsoHttpServlet;
 import org.silverpeas.core.web.sso.SilverpeasSsoPrincipal;
 
@@ -44,7 +44,7 @@ public class AzureRequestRouter extends SilverpeasSsoHttpServlet {
   @Override
   protected SilverpeasSsoPrincipal computeSsoPrincipal(final HttpServletRequest request,
       final HttpServletResponse response) {
-    final AuthenticationResult result = AuthHelper.getAuthSessionObject(request);
+    final IAuthenticationResult result = AuthHelper.getAuthSessionObject(request);
     if (response.getStatus() == 500) {
       logger().debug(() -> format("Technical azure error for session {0}.", getLogSessionId(request)));
     } else if (result == null) {
@@ -58,7 +58,7 @@ public class AzureRequestRouter extends SilverpeasSsoHttpServlet {
 
         @Override
         public String getName() {
-          return result.getUserInfo().getDisplayableId();
+          return result.account().username();
         }
       };
     }
