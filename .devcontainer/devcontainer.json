@@ -1,0 +1,33 @@
+{
+  "name": "Silverpeas-sso",
+  "build": {
+    "dockerfile": "./Dockerfile"
+  },
+  "containerUser": "silveruser",
+  "remoteUser": "silveruser",
+  "updateRemoteUserUID": true,
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/silveruser/${localWorkspaceFolderBasename},type=bind",
+  "workspaceFolder": "/home/silveruser/${localWorkspaceFolderBasename}",
+  "mounts": [
+    {
+      "source": "${localEnv:HOME}/.m2",
+      "target": "/home/silveruser/.m2",
+      "type": "bind"
+    },
+    {
+      "source": "${localEnv:HOME}/.ssh",
+      "target": "/home/silveruser/.ssh",
+      "type": "bind"
+    },
+    {
+      "source": "${localEnv:HOME}/.gitconfig",
+      "target": "/home/silveruser/.gitconfig",
+      "type": "bind"
+    }
+  ],
+  "customizations": {
+    "jetbrains": {
+      "backend": "IntelliJ"
+    }
+  }
+}
