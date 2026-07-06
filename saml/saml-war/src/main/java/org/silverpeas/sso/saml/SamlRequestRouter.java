@@ -43,7 +43,6 @@ import static org.silverpeas.sso.saml.settings.SamlSettings.getSilverpeasDomainI
  * @author silveryocha
  */
 public class SamlRequestRouter extends SilverpeasSsoHttpServlet {
-  private static final long serialVersionUID = 2144396078579829247L;
 
   @Override
   protected SilverpeasSsoPrincipal computeSsoPrincipal(final HttpServletRequest request,
@@ -51,7 +50,7 @@ public class SamlRequestRouter extends SilverpeasSsoHttpServlet {
     final Optional<String> principal = getAuthSessionPrincipal(request);
     if (response.getStatus() == 500) {
       logger().debug(() -> format("Technical error for session {0}.", getLogSessionId(request)));
-    } else if (!principal.isPresent()) {
+    } else if (principal.isEmpty()) {
       logger().debug(() -> format("No principal for session {0}.", getLogSessionId(request)));
     } else {
       final String silverpeasDomainId = getSilverpeasDomainId(request);

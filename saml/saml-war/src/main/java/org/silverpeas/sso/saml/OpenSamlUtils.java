@@ -24,7 +24,7 @@
 
 package org.silverpeas.sso.saml;
 
-import net.shibboleth.utilities.java.support.security.RandomIdentifierGenerationStrategy;
+import net.shibboleth.shared.security.impl.RandomIdentifierGenerationStrategy;
 import org.opensaml.core.xml.XMLObject;
 import org.opensaml.core.xml.XMLObjectBuilderFactory;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport;
@@ -49,7 +49,7 @@ import static org.silverpeas.sso.saml.SamlLogger.logger;
  * @author silveryocha
  */
 class OpenSamlUtils {
-  private static RandomIdentifierGenerationStrategy secureRandomIdGenerator;
+  private static final RandomIdentifierGenerationStrategy secureRandomIdGenerator;
 
   private OpenSamlUtils() {
     throw new IllegalAccessError("Utility class");
@@ -74,10 +74,9 @@ class OpenSamlUtils {
   static void logSamlObject(final XMLObject object) {
     Element element = null;
 
-    if (object instanceof SignableSAMLObject &&
-        ((SignableSAMLObject) object).isSigned() &&
-        object.getDOM() != null) {
-      element = object.getDOM();
+    if (object instanceof SignableSAMLObject signableSAMLObject &&
+        signableSAMLObject.isSigned() && signableSAMLObject.getDOM() != null) {
+      element = signableSAMLObject.getDOM();
     } else {
       try {
         Marshaller out = XMLObjectProviderRegistrySupport.getMarshallerFactory().getMarshaller(object);

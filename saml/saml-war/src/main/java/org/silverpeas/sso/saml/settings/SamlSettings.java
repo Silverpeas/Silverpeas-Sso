@@ -24,11 +24,12 @@
 
 package org.silverpeas.sso.saml.settings;
 
-import net.shibboleth.utilities.java.support.component.ComponentInitializationException;
-import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
-import net.shibboleth.utilities.java.support.resolver.Criterion;
-import net.shibboleth.utilities.java.support.resolver.ResolverException;
-import net.shibboleth.utilities.java.support.xml.BasicParserPool;
+import net.shibboleth.shared.component.ComponentInitializationException;
+import net.shibboleth.shared.resolver.CriteriaSet;
+import net.shibboleth.shared.resolver.Criterion;
+import net.shibboleth.shared.resolver.ResolverException;
+import net.shibboleth.shared.xml.impl.BasicParserPool;
+import org.jetbrains.annotations.Nullable;
 import org.opensaml.core.criterion.EntityIdCriterion;
 import org.opensaml.saml.common.SAMLRuntimeException;
 import org.opensaml.saml.common.xml.SAMLConstants;
@@ -110,7 +111,7 @@ public class SamlSettings {
           AUTHENTICATED_TELEPHONY_AUTHN_CTX, SRP_AUTHN_CTX, TLS_CLIENT_AUTHN_CTX,
           TIME_SYNC_TOKEN_AUTHN_CTX, UNSPECIFIED_AUTHN_CTX)
       .collect(toMap(s -> {
-        final String[] split = s.split("[:]");
+        final String[] split = s.split(":");
         return split[split.length - 1].toLowerCase();
       }, c -> c));
 
@@ -171,6 +172,7 @@ public class SamlSettings {
     return getIdpSsoDescriptor(httpRequest)
         .stream()
         .flatMap(d -> d.getSingleSignOnServices().stream())
+        .filter(d -> StringUtil.isDefined(d.getBinding()))
         .filter(d -> d.getBinding().equals(SAMLConstants.SAML2_POST_BINDING_URI))
         .map(Endpoint::getLocation)
         .filter(StringUtil::isDefined)
@@ -270,6 +272,7 @@ public class SamlSettings {
     return ofNullable(ofNullable(ssoDescriptor)
         .stream()
         .flatMap(d -> d.getKeyDescriptors().stream())
+        .filter(k -> k.getUse() != null && k.getKeyInfo() != null)
         .sorted(comparing(KeyDescriptor::getUse))
         .filter(k -> SIGNING.equals(k.getUse()) || UNSPECIFIED.equals(k.getUse()))
         .flatMap(k -> k.getKeyInfo().getX509Datas().stream())
@@ -332,13 +335,7 @@ public class SamlSettings {
       try (final InputStream in = Files.newInputStream(keystoreDomainPath)) {
         final KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
         keystore.load(in, keystoreData.getPassword().toCharArray());
-        final Map<String, String> passwordMap = new HashMap<>();
-        passwordMap.put(keystoreData.getEntryId(), keystoreData.getEntryPassword());
-        final KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keystore, passwordMap);
-        final Criterion criterion = new EntityIdCriterion(keystoreData.getEntryId());
-        final CriteriaSet criteriaSet = new CriteriaSet();
-        criteriaSet.add(criterion);
-        final Credential credential = resolver.resolveSingle(criteriaSet);
+        final Credential credential = getCredential(keystoreData, keystore);
         return Pair.of(keystoreData.getPath(), credential);
       } catch (Exception e) {
         logger().error(e);
@@ -346,6 +343,17 @@ public class SamlSettings {
       }
     }
     return actual;
+  }
+
+  @Nullable
+  private static Credential getCredential(KeystorePathData keystoreData, KeyStore keystore) throws ResolverException {
+    final Map<String, String> passwordMap = new HashMap<>();
+    passwordMap.put(keystoreData.getEntryId(), keystoreData.getEntryPassword());
+    final KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keystore, passwordMap);
+    final Criterion criterion = new EntityIdCriterion(keystoreData.getEntryId());
+    final CriteriaSet criteriaSet = new CriteriaSet();
+    criteriaSet.add(criterion);
+    return resolver.resolveSingle(criteriaSet);
   }
 
   private static synchronized Optional<SPSSODescriptor> getSpSsoDescriptor(

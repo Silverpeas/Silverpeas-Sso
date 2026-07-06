@@ -39,8 +39,7 @@
   <name>Silverpeas - SAML SSO Authentication Web Application</name>
 
   <properties>
-    <!-- property used by the CI to both deploy a build version and release the next stable version -->
-    <org.opensaml.version>3.4.6</org.opensaml.version>
+    <org.opensaml.version>5.1.6</org.opensaml.version>
   </properties>
 
   <repositories>
@@ -48,7 +47,7 @@
       <id>Silverpeas</id>
       <layout>default</layout>
       <name>Silverpeas Repository</name>
-      <url>https://build.shibboleth.net/nexus/content/repositories/releases</url>
+      <url>https://build.shibboleth.net/maven/releases/</url>
       <releases>
         <enabled>true</enabled>
       </releases>
@@ -61,14 +60,13 @@
   <dependencies>
     <dependency>
       <groupId>org.opensaml</groupId>
-      <artifactId>opensaml-core</artifactId>
+      <artifactId>opensaml-core-api</artifactId>
       <version>${org.opensaml.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-        </exclusion>
-      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.opensaml</groupId>
+      <artifactId>opensaml-core-impl</artifactId>
+      <version>${org.opensaml.version}</version>
     </dependency>
     <dependency>
       <groupId>org.opensaml</groupId>

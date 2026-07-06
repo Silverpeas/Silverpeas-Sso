@@ -24,9 +24,14 @@
 
 package org.silverpeas.sso.saml;
 
-import net.shibboleth.utilities.java.support.component.ComponentInitializationException;
-import net.shibboleth.utilities.java.support.httpclient.HttpClientBuilder;
-import org.joda.time.DateTime;
+import jakarta.annotation.Nonnull;
+import jakarta.security.auth.message.AuthException;
+import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import net.shibboleth.shared.component.ComponentInitializationException;
+import net.shibboleth.shared.httpclient.HttpClientBuilder;
+import org.jetbrains.annotations.NotNull;
 import org.opensaml.core.config.InitializationException;
 import org.opensaml.core.config.InitializationService;
 import org.opensaml.core.xml.XMLObject;
@@ -41,7 +46,6 @@ import org.opensaml.messaging.handler.impl.BasicMessageHandlerChain;
 import org.opensaml.messaging.pipeline.httpclient.BasicHttpClientMessagePipeline;
 import org.opensaml.messaging.pipeline.httpclient.HttpClientMessagePipeline;
 import org.opensaml.profile.context.ProfileRequestContext;
-import org.opensaml.saml.common.SAMLObject;
 import org.opensaml.saml.common.binding.security.impl.MessageLifetimeSecurityHandler;
 import org.opensaml.saml.common.binding.security.impl.ReceivedEndpointSecurityHandler;
 import org.opensaml.saml.common.binding.security.impl.SAMLOutboundProtocolMessageSigningHandler;
@@ -70,22 +74,15 @@ import org.opensaml.xmlsec.signature.support.SignatureValidator;
 import org.silverpeas.kernel.SilverpeasRuntimeException;
 import org.silverpeas.kernel.util.StringUtil;
 
-import jakarta.annotation.Nonnull;
-import jakarta.security.auth.message.AuthException;
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.StringReader;
 import java.security.Provider;
 import java.security.Security;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.text.MessageFormat.format;
@@ -106,10 +103,8 @@ public class SamlFilter implements Filter {
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-    if (request instanceof HttpServletRequest) {
-      final HttpServletRequest httpRequest = (HttpServletRequest) request;
-      final HttpServletResponse httpResponse = (HttpServletResponse) response;
-
+    if (request instanceof HttpServletRequest httpRequest &&
+        response instanceof HttpServletResponse httpResponse) {
       try {
         // check if user has a AuthData in the session
         if (!SamlAuthHelper.isAuthenticated(httpRequest)) {
@@ -147,7 +142,7 @@ public class SamlFilter implements Filter {
       }
       logger().debug("Artifact received");
       final Artifact artifact = buildArtifactFromRequest(optionalArtifactResolve.get());
-      logger().debug("Artifact: " + artifact.getArtifact());
+      logger().debug("Artifact: " + artifact.getValue());
       final ArtifactResolve artifactResolve = buildArtifactResolve(context, artifact);
       logger().debug("Sending ArtifactResolve");
       logger().debug("ArtifactResolve: ");
@@ -167,7 +162,7 @@ public class SamlFilter implements Filter {
 
   private Artifact buildArtifactFromRequest(final String artifactResolve) {
     Artifact artifact = buildSamlObject(Artifact.class);
-    artifact.setArtifact(artifactResolve);
+    artifact.setValue(artifactResolve);
     return artifact;
   }
 
@@ -176,70 +171,73 @@ public class SamlFilter implements Filter {
     Issuer issuer = buildSamlObject(Issuer.class);
     issuer.setValue(getEntityId(context.getHttpRequest()));
     artifactResolve.setIssuer(issuer);
-    artifactResolve.setIssueInstant(DateTime.now());
+    artifactResolve.setIssueInstant(Instant.now());
     artifactResolve.setID(OpenSamlUtils.generateSecureRandomId());
     artifactResolve.setDestination(getArtifactResolutionServiceUrl(context.getHttpRequest()));
     artifactResolve.setArtifact(artifact);
     return artifactResolve;
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
   private ArtifactResponse sendAndReceiveArtifactResolve(final SamlContext context,
       final ArtifactResolve artifactResolve) {
     try {
-      final MessageContext<ArtifactResolve> contextOut = new MessageContext<>();
+      final MessageContext contextOut = new MessageContext();
       contextOut.setMessage(artifactResolve);
       signingOptionallyWithSP(context, contextOut);
-      final InOutOperationContext<ArtifactResponse, ArtifactResolve> opContext = new
-          ProfileRequestContext<>();
+      final InOutOperationContext opContext = new ProfileRequestContext();
       opContext.setOutboundMessageContext(contextOut);
-      final AbstractPipelineHttpSOAPClient<SAMLObject, SAMLObject> soapClient = new
-          AbstractPipelineHttpSOAPClient() {
-        @Override
-        @Nonnull
-        protected HttpClientMessagePipeline newPipeline() {
-          final HttpClientRequestSOAP11Encoder encoder = new HttpClientRequestSOAP11Encoder();
-          final HttpClientResponseSOAP11Decoder decoder = new HttpClientResponseSOAP11Decoder();
-          final BasicHttpClientMessagePipeline pipeline = new BasicHttpClientMessagePipeline(
-              encoder, decoder);
-          pipeline.setOutboundPayloadHandler(new SAMLOutboundProtocolMessageSigningHandler());
-          return pipeline;
-        }
-      };
-      final HttpClientBuilder clientBuilder = new HttpClientBuilder();
-      soapClient.setHttpClient(clientBuilder.buildClient());
+      final AbstractPipelineHttpSOAPClient soapClient = getPipelineHttpSOAPClient();
       soapClient.send(getArtifactResolutionServiceUrl(context.getHttpRequest()), opContext);
-      return opContext.getInboundMessageContext().getMessage();
+      return (ArtifactResponse) Objects.requireNonNull(
+          opContext.getInboundMessageContext()).getMessage();
     } catch (Exception e) {
       throw new SilverpeasRuntimeException(e);
     }
   }
 
-  @SuppressWarnings({"unchecked", "ConstantConditions"})
+  @NotNull
+  private static AbstractPipelineHttpSOAPClient getPipelineHttpSOAPClient() throws Exception {
+    final AbstractPipelineHttpSOAPClient soapClient = new AbstractPipelineHttpSOAPClient() {
+      @Override
+      @Nonnull
+      protected HttpClientMessagePipeline newPipeline() {
+        final HttpClientRequestSOAP11Encoder encoder = new HttpClientRequestSOAP11Encoder();
+        final HttpClientResponseSOAP11Decoder decoder = new HttpClientResponseSOAP11Decoder();
+        final BasicHttpClientMessagePipeline pipeline = new BasicHttpClientMessagePipeline(
+            encoder, decoder);
+        pipeline.setOutboundPayloadHandler(new SAMLOutboundProtocolMessageSigningHandler());
+        return pipeline;
+      }
+    };
+    final HttpClientBuilder clientBuilder = new HttpClientBuilder();
+    soapClient.setHttpClient(clientBuilder.buildClient());
+    return soapClient;
+  }
+
+  @SuppressWarnings({"ConstantConditions"})
   private void validateDestinationAndLifetime(final SamlContext context,
       final ArtifactResponse artifactResponse) {
-    final MessageContext<ArtifactResponse> msgContext = new MessageContext<>();
+    final MessageContext msgContext = new MessageContext();
     msgContext.setMessage(artifactResponse);
     final SAMLMessageInfoContext messageInfoContext = msgContext
-        .getSubcontext(SAMLMessageInfoContext.class, true);
+        .ensureSubcontext(SAMLMessageInfoContext.class);
     messageInfoContext.setMessageIssueInstant(artifactResponse.getIssueInstant());
     final MessageLifetimeSecurityHandler lifetimeSecurityHandler = new
         MessageLifetimeSecurityHandler();
-    lifetimeSecurityHandler.setClockSkew(1000);
-    lifetimeSecurityHandler.setMessageLifetime(2000);
+    lifetimeSecurityHandler.setClockSkew(Duration.ofMillis(1000));
+    lifetimeSecurityHandler.setMessageLifetime(Duration.ofMillis(2000));
     lifetimeSecurityHandler.setRequiredRule(true);
     final ReceivedEndpointSecurityHandler receivedEndpointSecurityHandler = new
         ReceivedEndpointSecurityHandler();
-    receivedEndpointSecurityHandler.setHttpServletRequest(context.getHttpRequest());
-    final List<MessageHandler<ArtifactResponse>> handlers = new ArrayList<>();
+    receivedEndpointSecurityHandler.setHttpServletRequestSupplier(context::getHttpRequest);
+    final List<MessageHandler> handlers = new ArrayList<>();
     handlers.add(lifetimeSecurityHandler);
     handlers.add(receivedEndpointSecurityHandler);
-    final BasicMessageHandlerChain<ArtifactResponse> handlerChain = new
-        BasicMessageHandlerChain<>();
+    final BasicMessageHandlerChain handlerChain = new BasicMessageHandlerChain();
     handlerChain.setHandlers(handlers);
     try {
       handlerChain.initialize();
-      handlerChain.doInvoke(msgContext);
+      handlerChain.invoke(msgContext);
     } catch (ComponentInitializationException | MessageHandlerException e) {
       throw new SilverpeasRuntimeException(e);
     }
@@ -247,7 +245,7 @@ public class SamlFilter implements Filter {
 
   private EncryptedAssertion getEncryptedAssertion(final ArtifactResponse artifactResponse) {
     Response response = (Response) artifactResponse.getMessage();
-    return response.getEncryptedAssertions().get(0);
+    return Objects.requireNonNull(response).getEncryptedAssertions().get(0);
   }
 
   private Assertion decryptAssertion(final EncryptedAssertion encryptedAssertion) {
@@ -280,8 +278,8 @@ public class SamlFilter implements Filter {
 
   private boolean redirectUserForAuthentication(final SamlContext context) {
     boolean performed = false;
-    if (!context.getArtifactResolve().isPresent() && !context.getSamlRequest().isPresent() &&
-        !context.getSamlResponse().isPresent()) {
+    if (context.getArtifactResolve().isEmpty() && context.getSamlRequest().isEmpty() &&
+        context.getSamlResponse().isEmpty()) {
       // not authenticated
       logger().debug(() -> format("Going to saml SSO URL for session {0}.",
           getLogSessionId(context.getHttpRequest())));
@@ -294,7 +292,7 @@ public class SamlFilter implements Filter {
 
   private AuthnRequest buildAuthnRequest(final SamlContext context) {
     final AuthnRequest authnRequest = buildSamlObject(AuthnRequest.class);
-    authnRequest.setIssueInstant(DateTime.now());
+    authnRequest.setIssueInstant(Instant.now());
     authnRequest.setDestination(getSsoServiceUrl(context.getHttpRequest()));
     authnRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
     authnRequest.setAssertionConsumerServiceURL(getAssertionConsumerServiceUrl(context.getHttpRequest()));
@@ -319,25 +317,28 @@ public class SamlFilter implements Filter {
   }
 
   private RequestedAuthnContext buildRequestedAuthnContext(final SamlContext context) {
-    final RequestedAuthnContext requestedAuthnContext = buildSamlObject(RequestedAuthnContext.class);
+    final RequestedAuthnContext requestedAuthnContext =
+        buildSamlObject(RequestedAuthnContext.class);
     requestedAuthnContext.setComparison(getAuthnContextComparison(context.getHttpRequest()));
     final AuthnContextClassRef authnContextClassRef = buildSamlObject(AuthnContextClassRef.class);
-    authnContextClassRef.setAuthnContextClassRef(getAuthnContextClass(context.getHttpRequest()));
+    authnContextClassRef.setURI(getAuthnContextClass(context.getHttpRequest()));
     requestedAuthnContext.getAuthnContextClassRefs().add(authnContextClassRef);
     return requestedAuthnContext;
   }
 
   @SuppressWarnings({"ConstantConditions"})
   private void redirectUserWithRequest(final SamlContext context, final AuthnRequest authnRequest) {
-    final MessageContext<SAMLObject> msgContext = new MessageContext<>();
+    final MessageContext msgContext = new MessageContext();
     msgContext.setMessage(authnRequest);
-    final SAMLPeerEntityContext peerEntityContext = msgContext.getSubcontext(SAMLPeerEntityContext.class, true);
-    final SAMLEndpointContext endpointContext = peerEntityContext.getSubcontext(SAMLEndpointContext.class, true);
+    final SAMLPeerEntityContext peerEntityContext =
+        msgContext.ensureSubcontext(SAMLPeerEntityContext.class);
+    final SAMLEndpointContext endpointContext =
+        peerEntityContext.ensureSubcontext(SAMLEndpointContext.class);
     endpointContext.setEndpoint(getIdpEndpoint(context));
     signingOptionallyWithSP(context, msgContext);
     final HTTPRedirectDeflateEncoder encoder = new HTTPRedirectDeflateEncoder();
     encoder.setMessageContext(msgContext);
-    encoder.setHttpServletResponse(context.getHttpResponse());
+    encoder.setHttpServletResponseSupplier(context::getHttpResponse);
     try {
       encoder.initialize();
     } catch (ComponentInitializationException e) {
@@ -384,18 +385,22 @@ public class SamlFilter implements Filter {
   private void validateDelay(final SamlContext context, final Assertion assertion)
       throws AuthException {
     if (isNotBeforeAssertionConditionEnabled(context.httpRequest)) {
-      final DateTime notBefore = assertion.getConditions().getNotBefore();
+      final Instant notBefore = Objects.requireNonNull(assertion.getConditions()).getNotBefore();
       if (notBefore == null) {
         throw new AuthException("'not before' condition is missing");
-      } else if (notBefore.isAfterNow()) {
+      } else if (notBefore.isAfter(Instant.now())) {
         throw new AuthException("authentication is not yet possible");
       }
     }
     if (isNotOnOrAfterAssertionConditionEnabled(context.httpRequest)) {
-      final DateTime notOnOrAfter = assertion.getConditions().getNotOnOrAfter();
+      final Conditions conditions = assertion.getConditions();
+      if (conditions == null) {
+        throw new AuthException("No conditions found!");
+      }
+      final Instant notOnOrAfter =assertion.getConditions().getNotOnOrAfter();
       if (notOnOrAfter == null) {
         throw new AuthException("'not on or after' condition is missing");
-      } else if (!notOnOrAfter.isAfterNow()) {
+      } else if (!notOnOrAfter.isAfter(Instant.now())) {
         throw new AuthException("authentication delay expired");
       }
     }
@@ -426,7 +431,7 @@ public class SamlFilter implements Filter {
         final Optional<Status> status = Optional.ofNullable(response.getStatus());
         return new AuthException(format("SAML response status code {0} with message -> {1}",
             status.map(Status::getStatusCode).map(StatusCode::getValue).orElse("N/A"),
-            status.map(Status::getStatusMessage).map(StatusMessage::getMessage).orElse("N/A")));
+            status.map(Status::getStatusMessage).map(StatusMessage::getValue).orElse("N/A")));
       });
     } catch (Exception e) {
       logger().error(e);
@@ -434,14 +439,14 @@ public class SamlFilter implements Filter {
     }
   }
 
-  private <T extends SAMLObject> void signingOptionallyWithSP(final SamlContext context,
-      final MessageContext<T> msgContext) {
+  private void signingOptionallyWithSP(final SamlContext context, final MessageContext msgContext) {
     getSpCredential(context.httpRequest).ifPresent(c -> {
-      final SignatureSigningParameters signatureSigningParameters = new SignatureSigningParameters();
+      final SignatureSigningParameters signatureSigningParameters =
+          new SignatureSigningParameters();
       signatureSigningParameters.setSigningCredential(c);
       signatureSigningParameters.setSignatureAlgorithm(SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA256);
       signatureSigningParameters.setSignatureCanonicalizationAlgorithm(SignatureConstants.ALGO_ID_C14N_EXCL_OMIT_COMMENTS);
-      msgContext.getSubcontext(SecurityParametersContext.class, true).setSignatureSigningParameters(signatureSigningParameters);
+      msgContext.ensureSubcontext(SecurityParametersContext.class).setSignatureSigningParameters(signatureSigningParameters);
     });
   }
 
@@ -507,7 +512,8 @@ public class SamlFilter implements Filter {
     }
 
     Optional<String> getSamlResponse() {
-      return Optional.ofNullable(samlResponse != null ? new String(fromBase64(samlResponse)) : null);
+      return Optional.ofNullable(samlResponse != null ? new String(fromBase64(samlResponse)) :
+          null);
     }
   }
 }

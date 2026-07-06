@@ -40,6 +40,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.silverpeas.kernel.util.StringUtil;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -64,14 +65,14 @@ public class AzureFilter implements Filter {
   private static final String STATES = "states";
   private static final String STATE = "state";
   private static final Integer STATE_TTL = 3600;
-  private static final String FAILED_TO_VALIDATE_MESSAGE = "Failed to validate data received from Authorization service - ";
+  private static final String FAILED_TO_VALIDATE_MESSAGE = "Failed to validate data received from" +
+      " Authorization service - ";
 
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
       throws IOException, ServletException {
-    if (request instanceof HttpServletRequest) {
-      final HttpServletRequest httpRequest = (HttpServletRequest) request;
-      final HttpServletResponse httpResponse = (HttpServletResponse) response;
+    if (request instanceof HttpServletRequest httpRequest &&
+        response instanceof HttpServletResponse httpResponse) {
       try {
         // check if user has a AuthData in the session
         if (!AuthHelper.isAuthenticated(httpRequest)) {
@@ -95,7 +96,8 @@ public class AzureFilter implements Filter {
         // something went wrong (like expiration or revocation of token)
         // we should invalidate AuthData stored in session and redirect to Authorization server
         invalidateAuth(httpRequest);
-        logger().debug(() -> format("Due to authentication error, going to azure authority server for session {0}.",
+        logger().debug(() -> format("Due to authentication error, going to azure authority server" +
+                " for session {0}.",
             getLogSessionId(httpRequest)));
         sendAuthRedirect(httpRequest, httpResponse);
         return;
@@ -113,8 +115,8 @@ public class AzureFilter implements Filter {
   }
 
   /**
-   * Silently renews the access token from MSAL's token cache (which holds the refresh token).
-   * On any MSAL failure (e.g. interaction required) the {@link MsalException} is propagated so that
+   * Silently renews the access token from MSAL's token cache (which holds the refresh token). On
+   * any MSAL failure (e.g. interaction required) the {@link MsalException} is propagated so that
    * the filter can fall back to an interactive redirect to the authority server.
    */
   private void updateAuthDataSilently(HttpServletRequest httpRequest)
@@ -136,8 +138,8 @@ public class AzureFilter implements Filter {
       Thread.currentThread().interrupt();
       throw new ServletException(e);
     } catch (ExecutionException e) {
-      if (e.getCause() instanceof MsalException) {
-        throw (MsalException) e.getCause();
+      if (e.getCause() instanceof MsalException msalException) {
+        throw msalException;
       }
       throw new ServletException(e.getCause() != null ? e.getCause() : e);
     } catch (MalformedURLException e) {
@@ -157,12 +159,14 @@ public class AzureFilter implements Filter {
             Collectors.toMap(Map.Entry::getKey, e -> Arrays.asList(e.getValue())));
 
     // validate that state in response equals to state in request
-    final StateData stateData = validateState(httpRequest.getSession(false), params.get(STATE).get(0));
+    final StateData stateData = validateState(httpRequest.getSession(false),
+        params.get(STATE).get(0));
 
     final String currentUri = httpRequest.getRequestURL().toString();
     final AuthenticationResponse authResponse;
     try {
-      authResponse = AuthenticationResponseParser.parse(getFullCurrentUri(httpRequest, currentUri), params);
+      authResponse = AuthenticationResponseParser.parse(getFullCurrentUri(httpRequest,
+          currentUri), params);
     } catch (ParseException e) {
       throw new ServletException(e);
     }
@@ -203,8 +207,9 @@ public class AzureFilter implements Filter {
   }
 
   /**
-   * make sure that state is stored in the session,
-   * delete it from session - should be used only once
+   * make sure that state is stored in the session, delete it from session - should be used only
+   * once
+   *
    * @param session the current session
    * @param state the state value.
    * @throws ServletException on technical error.
@@ -221,7 +226,8 @@ public class AzureFilter implements Filter {
 
   @SuppressWarnings("unchecked")
   private StateData removeStateFromSession(HttpSession session, String state) {
-    final Map<String, StateData> states =  session != null ? (Map<String, StateData>) session.getAttribute(STATES) : null;
+    final Map<String, StateData> states = session != null ?
+        (Map<String, StateData>) session.getAttribute(STATES) : null;
     if (states != null) {
       eliminateExpiredStates(states);
       final StateData stateData = states.get(state);
@@ -243,7 +249,7 @@ public class AzureFilter implements Filter {
   }
 
   private void validateNonce(StateData stateData, String nonce) throws ServletException {
-    if (StringUtil.isNotDefined(nonce) || !nonce.equals(stateData.getNonce())) {
+    if (StringUtil.isNotDefined(nonce) || !nonce.equals(stateData.nonce())) {
       throw new ServletException(FAILED_TO_VALIDATE_MESSAGE + "could not validate nonce");
     }
   }
@@ -280,14 +286,15 @@ public class AzureFilter implements Filter {
 
     final String currentUri = httpRequest.getRequestURL().toString();
 
-    httpResponse.sendRedirect(getRedirectUrl(currentUri, httpRequest.getParameter("claims"), state, nonce));
+    httpResponse.sendRedirect(getRedirectUrl(currentUri, httpRequest.getParameter("claims"),
+        state, nonce));
   }
 
   private void eliminateExpiredStates(Map<String, StateData> map) {
     final Date currentTime = new Date();
     map.entrySet().removeIf(e -> {
       final long diffInSeconds = TimeUnit.MILLISECONDS.
-          toSeconds(currentTime.getTime() - e.getValue().getExpirationDate().getTime());
+          toSeconds(currentTime.getTime() - e.getValue().expirationDate().getTime());
       return diffInSeconds > STATE_TTL;
     });
   }
@@ -369,23 +376,9 @@ public class AzureFilter implements Filter {
     return app.getAuthorizationRequestUrl(builder.build()).toString();
   }
 
-  private static class StateData implements Serializable {
-    private static final long serialVersionUID = 123456333519529362L;
+  private record StateData(String nonce, Date expirationDate) implements Serializable {
+      @Serial
+      private static final long serialVersionUID = 123456333519529362L;
 
-    private final String nonce;
-    private final Date expirationDate;
-
-    StateData(String nonce, Date expirationDate) {
-      this.nonce = nonce;
-      this.expirationDate = expirationDate;
-    }
-
-    String getNonce() {
-      return nonce;
-    }
-
-    Date getExpirationDate() {
-      return expirationDate;
-    }
   }
 }
