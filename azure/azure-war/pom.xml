@@ -17,13 +17,23 @@
       <groupId>com.microsoft.azure</groupId>
       <artifactId>msal4j</artifactId>
       <version>1.25.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <!-- Used to parse the OIDC authentication response sent back by the authority server. Recent
          msal4j versions no longer depend on it transitively, so it is declared explicitly. -->
     <dependency>
       <groupId>com.nimbusds</groupId>
       <artifactId>oauth2-oidc-sdk</artifactId>
-      <version>11.20</version>
+      <version>11.37.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
   </dependencies>
 
@@ -35,13 +45,11 @@
         <executions>
           <execution>
             <goals>
-              <goal>jslint</goal>
               <goal>compress</goal>
             </goals>
           </execution>
         </executions>
         <configuration>
-          <jswarn>false</jswarn>
           <excludes>
             <exclude>**/*.min.*</exclude>
             <exclude>**/*-min.*</exclude>
