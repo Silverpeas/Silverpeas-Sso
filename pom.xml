@@ -46,7 +46,7 @@
     <!-- property used by the CI to both deploy a build version and release the next stable version -->
     <next.release>2.0</next.release>
     <!-- Version of Silverpeas on which it depends -->
-    <silverpeas.version>6.5-build260622</silverpeas.version>
+    <silverpeas.version>6.5-build260726</silverpeas.version>
     <maven.compiler.release>17</maven.compiler.release>
   </properties>
 
