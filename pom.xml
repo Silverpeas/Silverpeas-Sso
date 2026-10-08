@@ -75,6 +75,26 @@
   </dependencies>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-war-plugin</artifactId>
+          <configuration>
+            <archive>
+              <manifestEntries>
+                <Build-Version>${project.version}</Build-Version>
+                <!-- The SSO WARs are merged into silverpeas.war by the Silverpeas installer and
+                     their manifest can then supersede the one of the core WAR. So the WildFly
+                     logging profile dedicated to Silverpeas must be declared here too, otherwise
+                     all the Silverpeas logs would be redirected to the default WildFly logs. -->
+                <Logging-Profile>silverpeas</Logging-Profile>
+              </manifestEntries>
+            </archive>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
